@@ -75,31 +75,61 @@ export const ResumeManager: React.FC<ResumeManagerProps> = ({
 
       // If it's the primary resume, also populate candidate profile
       if (!isSupplementary) {
-        setStatusMessage('Analyzing resume with Gemini AI...');
+        setStatusMessage('Analyzing resume and extracting profile & skills...');
+        const extracted = await geminiService.parseResumeText(text, settings.geminiApiKey);
         let updatedProfile: CandidateProfile = {
           ...profile,
           resumeText: text,
           lastUpdated: new Date().toISOString(),
+          fullName: extracted.fullName || profile.fullName || 'Candidate',
+          targetRole: extracted.targetRole || profile.targetRole || 'Software Engineer',
+          yearsOfExperience: extracted.yearsOfExperience || profile.yearsOfExperience || 2,
+          summary: extracted.summary || profile.summary,
+          coreSkills: extracted.coreSkills?.length ? extracted.coreSkills : profile.coreSkills,
         };
-
-        if (settings.geminiApiKey) {
-          const extracted = await geminiService.parseResumeText(text, settings.geminiApiKey);
-          updatedProfile = {
-            ...updatedProfile,
-            fullName: extracted.fullName || profile.fullName,
-            targetRole: extracted.targetRole || profile.targetRole,
-            yearsOfExperience: extracted.yearsOfExperience || profile.yearsOfExperience,
-            summary: extracted.summary || profile.summary,
-            coreSkills: extracted.coreSkills?.length ? extracted.coreSkills : profile.coreSkills,
-          };
-        }
         onUpdateProfile(updatedProfile);
       }
 
-      setStatusMessage(`Saved "${file.name}" to persistent local storage!`);
+      setStatusMessage(`Saved "${file.name}" and autofilled profile!`);
     } catch (err: any) {
       console.error('Upload error:', err);
       setStatusMessage('Error parsing document: ' + err.message);
+    } finally {
+      setIsParsing(false);
+      setTimeout(() => setStatusMessage(null), 5000);
+    }
+  };
+
+  const handleAutofillProfile = async () => {
+    const resumeText =
+      profile.resumeText ||
+      documents.find((d) => d.type === 'resume' || d.name.toLowerCase().includes('resume'))?.content;
+
+    if (!resumeText) {
+      alert('Please upload a resume first.');
+      return;
+    }
+
+    try {
+      setIsParsing(true);
+      setStatusMessage('Analyzing resume to autofill candidate profile...');
+      const extracted = await geminiService.parseResumeText(resumeText, settings.geminiApiKey);
+
+      const updatedProfile: CandidateProfile = {
+        ...profile,
+        resumeText,
+        lastUpdated: new Date().toISOString(),
+        fullName: extracted.fullName || profile.fullName,
+        targetRole: extracted.targetRole || profile.targetRole,
+        yearsOfExperience: extracted.yearsOfExperience || profile.yearsOfExperience,
+        summary: extracted.summary || profile.summary,
+        coreSkills: extracted.coreSkills?.length ? extracted.coreSkills : profile.coreSkills,
+      };
+
+      onUpdateProfile(updatedProfile);
+      setStatusMessage('Candidate profile & skills successfully autofilled!');
+    } catch (err: any) {
+      alert('Failed to autofill: ' + err.message);
     } finally {
       setIsParsing(false);
       setTimeout(() => setStatusMessage(null), 5000);
@@ -249,11 +279,23 @@ export const ResumeManager: React.FC<ResumeManagerProps> = ({
               <User className="w-5 h-5 text-sky-400" />
               <span>Extracted Candidate Profile</span>
             </div>
-            {profile.lastUpdated && (
-              <span className="text-[11px] text-slate-500">
-                Last updated: {new Date(profile.lastUpdated).toLocaleDateString()}
-              </span>
-            )}
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                onClick={handleAutofillProfile}
+                disabled={isParsing}
+                className="px-3 py-1.5 bg-gradient-to-r from-sky-500 to-indigo-500 hover:from-sky-400 hover:to-indigo-400 text-slate-950 font-bold text-xs rounded-xl flex items-center gap-1.5 transition shadow-sm"
+                title="Automatically extract bio, target role, and technical skills from your resume"
+              >
+                {isParsing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                <span>Auto-Fill from Resume</span>
+              </button>
+              {profile.lastUpdated && (
+                <span className="text-[11px] text-slate-500 hidden sm:inline">
+                  Synced: {new Date(profile.lastUpdated).toLocaleDateString()}
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">

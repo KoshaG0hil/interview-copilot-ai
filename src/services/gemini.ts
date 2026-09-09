@@ -317,40 +317,136 @@ Return JSON:
     }
   },
 
-  async parseResumeText(rawResume: string, apiKey: string): Promise<Partial<CandidateProfile>> {
-    const prompt = `Extract structured profile information from this resume:
+  async parseResumeText(rawResume: string, apiKey?: string): Promise<Partial<CandidateProfile>> {
+    // 1. If API key is available, use Gemini for high-accuracy extraction
+    if (apiKey) {
+      const prompt = `Extract structured profile information from this resume:
 """
 ${rawResume.slice(0, 12000)}
 """
 
 Return JSON:
 {
-  "fullName": "Extracted candidate name",
-  "targetRole": "Best suited role title based on experience",
-  "yearsOfExperience": 5,
-  "summary": "3-sentence high-impact professional bio highlighting accomplishments and engineering domains",
-  "coreSkills": ["Skill1", "Skill2", "Skill3", "Skill4", "Skill5", "Skill6", "Skill7", "Skill8"]
-}`;
+  "fullName": "Extracted candidate full name",
+  "targetRole": "Best suited role title based on experience (e.g. Cloud Security Engineer, Senior Backend Engineer)",
+  "yearsOfExperience": 2,
+  "summary": "3-sentence high-impact professional executive bio highlighting accomplishments, domain expertise, and engineering ownership",
+  "coreSkills": ["AWS IAM", "Terraform", "Kubernetes", "DevSecOps", "Cloud Security", "CI/CD", "Docker", "Python"]
+}
+IMPORTANT: Provide at least 8-12 specific core technical skills extracted from the resume. Return ONLY raw JSON.`;
 
-    const res = await this.callGemini({
-      apiKey,
-      prompt,
-      enableSearchGrounding: false,
-    });
+      try {
+        const res = await this.callGemini({
+          apiKey,
+          prompt,
+          enableSearchGrounding: false,
+        });
 
-    let raw = res.text.trim();
-    if (raw.startsWith('```json')) raw = raw.replace(/^```json\n?/, '').replace(/\n?```$/, '');
-    else if (raw.startsWith('```')) raw = raw.replace(/^```\n?/, '').replace(/\n?```$/, '');
+        const parsed = this.cleanJsonParse(res.text);
+        if (parsed && (parsed.summary || parsed.coreSkills?.length)) {
+          return {
+            fullName: parsed.fullName,
+            targetRole: parsed.targetRole,
+            yearsOfExperience: typeof parsed.yearsOfExperience === 'number' ? parsed.yearsOfExperience : parseInt(parsed.yearsOfExperience) || 2,
+            summary: parsed.summary,
+            coreSkills: Array.isArray(parsed.coreSkills) ? parsed.coreSkills.filter(Boolean) : [],
+          };
+        }
+      } catch (err) {
+        console.warn('Gemini parseResumeText error, using heuristic fallback:', err);
+      }
+    }
+
+    // 2. Instant Heuristic Fallback (parses Summary and Skills directly from text)
+    return this.heuristicParseResume(rawResume);
+  },
+
+  cleanJsonParse(text: string): any {
+    let cleaned = text.trim();
+    const fence = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    if (fence) cleaned = fence[1].trim();
 
     try {
-      return JSON.parse(raw);
-    } catch {
-      return {
-        fullName: 'Candidate',
-        summary: rawResume.slice(0, 250),
-        coreSkills: [],
-      };
+      return JSON.parse(cleaned);
+    } catch {}
+
+    const firstBrace = cleaned.indexOf('{');
+    const lastBrace = cleaned.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace > firstBrace) {
+      try {
+        return JSON.parse(cleaned.slice(firstBrace, lastBrace + 1));
+      } catch {}
     }
+
+    const firstBracket = cleaned.indexOf('[');
+    const lastBracket = cleaned.lastIndexOf(']');
+    if (firstBracket !== -1 && lastBracket > firstBracket) {
+      try {
+        return JSON.parse(cleaned.slice(firstBracket, lastBracket + 1));
+      } catch {}
+    }
+    throw new Error('Failed to parse JSON from AI response');
+  },
+
+  heuristicParseResume(rawResume: string): Partial<CandidateProfile> {
+    const lines = rawResume
+      .split('\n')
+      .map((l) => l.replace(/--- Page \d+ ---/g, '').trim())
+      .filter(Boolean);
+
+    let fullName = 'Candidate';
+    let targetRole = 'Software Engineer';
+
+    if (lines.length > 0) {
+      const nameParts = lines[0].split(/[|•,\t]/);
+      if (nameParts[0] && nameParts[0].trim().length < 40) {
+        fullName = nameParts[0].trim();
+      }
+      if (nameParts.length > 1 && nameParts[1].trim().length < 50) {
+        targetRole = nameParts[1].trim();
+      }
+    }
+
+    // Extract Summary section
+    let summary = '';
+    const summaryMatch = rawResume.match(/SUMMARY\s*[:\n]?([\s\S]*?)(?=SKILLS|EXPERIENCE|EDUCATION|PROJECTS|$)/i);
+    if (summaryMatch && summaryMatch[1].trim()) {
+      summary = summaryMatch[1].replace(/\s+/g, ' ').trim().slice(0, 600);
+    } else if (lines.length > 1) {
+      summary = lines.slice(1, 4).join(' ').replace(/\s+/g, ' ').trim().slice(0, 400);
+    }
+
+    // Extract Skills section
+    const coreSkills: string[] = [];
+    const skillsMatch = rawResume.match(/SKILLS\s*[:\n]?([\s\S]*?)(?=EXPERIENCE|EDUCATION|PROJECTS|CERTIFICATIONS|$)/i);
+    if (skillsMatch && skillsMatch[1].trim()) {
+      const rawSkillText = skillsMatch[1].replace(/[a-zA-Z\s&]+:\s*/g, ' ');
+      const tokens = rawSkillText.split(/[\n,;|•]/).map((s) => s.trim()).filter((s) => s.length > 1 && s.length < 35);
+      for (const t of tokens) {
+        if (!coreSkills.includes(t)) coreSkills.push(t);
+      }
+    }
+
+    // Standard high-value keywords scanner
+    const techKeywords = [
+      'AWS IAM', 'AWS Security', 'Cloud Security', 'DevSecOps', 'Terraform',
+      'Kubernetes', 'Docker', 'CI/CD', 'GitHub Actions', 'Jenkins', 'Linux',
+      'Python', 'Go', 'RBAC', 'Access Governance', 'SAML', 'OAuth 2.0',
+      'CloudTrail', 'Kafka', 'PostgreSQL', 'Redis', 'Security-as-Code'
+    ];
+    for (const tech of techKeywords) {
+      if (new RegExp(`\\b${tech.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&')}\\b`, 'i').test(rawResume)) {
+        if (!coreSkills.includes(tech)) coreSkills.push(tech);
+      }
+    }
+
+    return {
+      fullName: fullName !== 'Candidate' ? fullName : undefined,
+      targetRole: targetRole !== 'Software Engineer' ? targetRole : undefined,
+      yearsOfExperience: 2,
+      summary: summary || undefined,
+      coreSkills: coreSkills.slice(0, 15),
+    };
   },
 
   async generateStarStoriesFromResume(rawResume: string, apiKey: string): Promise<StarStory[]> {
