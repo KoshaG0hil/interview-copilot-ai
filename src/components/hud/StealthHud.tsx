@@ -123,6 +123,15 @@ export const StealthHud: React.FC<StealthHudProps> = ({
         handleScreenCapture();
       } else if (action === 'clear-transcript') {
         setTranscripts([]);
+      } else if (action === 'toggle-mic') {
+        toggleMic();
+      } else if (action === 'toggle-auto-answer') {
+        setIsAutoAnswer((prev) => {
+          const next = !prev;
+          notify(`⚡ Auto-Answer ${next ? 'ENABLED' : 'DISABLED'}`);
+          onUpdateSettings({ ...settings, autoAnswerOnQuestionDetected: next });
+          return next;
+        });
       } else if (action === 'toggle-mode-hub') {
         onSwitchToHub();
       }

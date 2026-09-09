@@ -220,7 +220,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           <div className="p-3.5 bg-slate-950 border border-slate-800/80 rounded-xl space-y-2">
             <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
               <HelpCircle className="w-3.5 h-3.5 text-slate-400" />
-              Global Stealth Hotkeys
+              Parakeet Stealth Global Hotkeys
             </div>
             <div className="grid grid-cols-2 gap-2 text-xs text-slate-300">
               <div className="flex items-center justify-between p-2 rounded bg-slate-900/60 border border-slate-800">
@@ -228,7 +228,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <kbd className="px-1.5 py-0.5 bg-slate-800 text-sky-300 rounded font-mono font-semibold">Ctrl + \</kbd>
               </div>
               <div className="flex items-center justify-between p-2 rounded bg-slate-900/60 border border-slate-800">
-                <span>Emergency Hide:</span>
+                <span>Emergency Hide / Reveal:</span>
                 <kbd className="px-1.5 py-0.5 bg-slate-800 text-sky-300 rounded font-mono font-semibold">Ctrl + Shift + H</kbd>
               </div>
               <div className="flex items-center justify-between p-2 rounded bg-slate-900/60 border border-slate-800">
@@ -236,8 +236,16 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <kbd className="px-1.5 py-0.5 bg-slate-800 text-sky-300 rounded font-mono font-semibold">Ctrl + Shift + Space</kbd>
               </div>
               <div className="flex items-center justify-between p-2 rounded bg-slate-900/60 border border-slate-800">
-                <span>Snip Screen OCR:</span>
+                <span>Snip & Solve Screen OCR:</span>
                 <kbd className="px-1.5 py-0.5 bg-slate-800 text-sky-300 rounded font-mono font-semibold">Ctrl + Shift + S</kbd>
+              </div>
+              <div className="flex items-center justify-between p-2 rounded bg-slate-900/60 border border-slate-800">
+                <span>Mute / Unmute Mic:</span>
+                <kbd className="px-1.5 py-0.5 bg-slate-800 text-sky-300 rounded font-mono font-semibold">Ctrl + Shift + M</kbd>
+              </div>
+              <div className="flex items-center justify-between p-2 rounded bg-slate-900/60 border border-slate-800">
+                <span>Toggle Auto-Answer:</span>
+                <kbd className="px-1.5 py-0.5 bg-slate-800 text-sky-300 rounded font-mono font-semibold">Ctrl + Shift + A</kbd>
               </div>
             </div>
           </div>

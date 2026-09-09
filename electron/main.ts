@@ -143,6 +143,16 @@ function setupGlobalShortcuts() {
   globalShortcut.register('CommandOrControl+Shift+C', () => {
     mainWindow?.webContents.send('shortcut-trigger', 'clear-transcript');
   });
+
+  // Shortcut 6: Mute / Unmute Mic (Ctrl+Shift+M)
+  globalShortcut.register('CommandOrControl+Shift+M', () => {
+    mainWindow?.webContents.send('shortcut-trigger', 'toggle-mic');
+  });
+
+  // Shortcut 7: Toggle Auto-Answer ON/OFF (Ctrl+Shift+A)
+  globalShortcut.register('CommandOrControl+Shift+A', () => {
+    mainWindow?.webContents.send('shortcut-trigger', 'toggle-auto-answer');
+  });
 }
 
 // Persistent Storage Handlers (Files stay until user deletes them)
