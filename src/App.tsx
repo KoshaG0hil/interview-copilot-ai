@@ -5,6 +5,7 @@ import {
   CompanyJobContext,
   AppSettings,
   KnowledgeDocument,
+  CustomQAItem,
 } from './types';
 import { storageService } from './services/storage';
 import { HubLayout } from './components/hub/HubLayout';
@@ -18,6 +19,7 @@ export const App: React.FC = () => {
   const [stories, setStories] = useState<StarStory[]>(() => storageService.getStories());
   const [jobContext, setJobContext] = useState<CompanyJobContext>(() => storageService.getJobContext());
   const [settings, setSettings] = useState<AppSettings>(() => storageService.getSettings());
+  const [customQAs, setCustomQAs] = useState<CustomQAItem[]>(() => storageService.getCustomQAs());
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Initialize and hydrate from disk on startup
@@ -29,6 +31,7 @@ export const App: React.FC = () => {
         if (diskData.stories) setStories(diskData.stories);
         if (diskData.jobContext) setJobContext(diskData.jobContext);
         if (diskData.settings) setSettings(diskData.settings);
+        if (diskData.customQAs) setCustomQAs(diskData.customQAs);
       }
     });
   }, []);
@@ -63,6 +66,18 @@ export const App: React.FC = () => {
   const handleUpdateSettings = (newSettings: AppSettings) => {
     setSettings(newSettings);
     storageService.saveSettings(newSettings);
+  };
+
+  const handleAddCustomQA = (qa: CustomQAItem) => {
+    const updated = [qa, ...customQAs.filter((q) => q.id !== qa.id)];
+    setCustomQAs(updated);
+    storageService.saveCustomQAs(updated);
+  };
+
+  const handleDeleteCustomQA = (id: string) => {
+    const updated = customQAs.filter((q) => q.id !== id);
+    setCustomQAs(updated);
+    storageService.saveCustomQAs(updated);
   };
 
   const handleLaunchHud = () => {
@@ -108,6 +123,9 @@ export const App: React.FC = () => {
           onUpdateSettings={handleUpdateSettings}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onLaunchHud={handleLaunchHud}
+          customQAs={customQAs}
+          onAddCustomQA={handleAddCustomQA}
+          onDeleteCustomQA={handleDeleteCustomQA}
         />
       ) : (
         <StealthHud
@@ -116,6 +134,7 @@ export const App: React.FC = () => {
           jobContext={jobContext}
           settings={settings}
           documents={documents}
+          customQAs={customQAs}
           onUpdateSettings={handleUpdateSettings}
           onSwitchToHub={handleSwitchToHub}
         />

@@ -6,6 +6,7 @@ import {
   AppSettings,
   KnowledgeDocument,
   PlatformProfileType,
+  CustomQAItem,
 } from '../../types';
 import { ResumeManager } from './ResumeManager';
 import { StoryBank } from './StoryBank';
@@ -44,6 +45,9 @@ interface HubLayoutProps {
   onUpdateSettings: (settings: AppSettings) => void;
   onOpenSettings: () => void;
   onLaunchHud: () => void;
+  customQAs: CustomQAItem[];
+  onAddCustomQA: (qa: CustomQAItem) => void;
+  onDeleteCustomQA: (id: string) => void;
 }
 
 export const HubLayout: React.FC<HubLayoutProps> = ({
@@ -60,6 +64,9 @@ export const HubLayout: React.FC<HubLayoutProps> = ({
   onUpdateSettings,
   onOpenSettings,
   onLaunchHud,
+  customQAs,
+  onAddCustomQA,
+  onDeleteCustomQA,
 }) => {
   const [activeTab, setActiveTab] = useState<
     'resume' | 'stories' | 'company' | 'mock' | 'assessment' | 'practice'
@@ -254,6 +261,9 @@ export const HubLayout: React.FC<HubLayoutProps> = ({
             onAddDocument={onAddDocument}
             onDeleteDocument={onDeleteDocument}
             onAddStories={(newStories) => onUpdateStories([...stories, ...newStories])}
+            customQAs={customQAs}
+            onAddCustomQA={onAddCustomQA}
+            onDeleteCustomQA={onDeleteCustomQA}
             settings={settings}
           />
         )}

@@ -31,6 +31,7 @@ export interface ElectronAPI {
   loadPersistentData: () => Promise<any | null>;
   savePersistentData: (data: any) => Promise<boolean>;
   getDataPath: () => Promise<string>;
+  fetchUrl: (url: string) => Promise<{ success: boolean; content?: string; error?: string }>;
   onGlobalShortcut: (callback: (action: string) => void) => () => void;
   onAudioTranscript: (callback: (data: { text: string; isFinal: boolean; source: 'mic' | 'system' }) => void) => () => void;
 }
@@ -50,6 +51,7 @@ const electronAPI: ElectronAPI = {
   loadPersistentData: () => ipcRenderer.invoke('load-persistent-data'),
   savePersistentData: (data: any) => ipcRenderer.invoke('save-persistent-data', data),
   getDataPath: () => ipcRenderer.invoke('get-data-path'),
+  fetchUrl: (url: string) => ipcRenderer.invoke('fetch-url', url),
   onGlobalShortcut: (callback: (action: string) => void) => {
     const handler = (_event: any, action: string) => callback(action);
     ipcRenderer.on('shortcut-trigger', handler);

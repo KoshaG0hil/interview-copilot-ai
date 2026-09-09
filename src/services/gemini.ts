@@ -6,6 +6,7 @@ import {
   CueCard,
   AppSettings,
   KnowledgeDocument,
+  CustomQAItem,
 } from '../types';
 
 declare global {
@@ -22,6 +23,7 @@ interface GenerateCueCardParams {
   jobContext: CompanyJobContext;
   settings: AppSettings;
   documents?: KnowledgeDocument[];
+  customQAs?: CustomQAItem[];
   screenImageBase64?: string;
 }
 
@@ -134,13 +136,17 @@ export const geminiService = {
   },
 
   async generateCueCard(params: GenerateCueCardParams): Promise<CueCard> {
-    const { question, mode, profile, stories, jobContext, settings, documents = [], screenImageBase64 } = params;
+    const { question, mode, profile, stories, jobContext, settings, documents = [], customQAs = [], screenImageBase64 } = params;
 
     const storiesContext = stories
       .map(
         (s, i) =>
           `[STORY ${i + 1}: ${s.title} (${s.category})]\n- Situation: ${s.situation}\n- Task: ${s.task}\n- Action: ${s.action}\n- Result: ${s.result}\n- Metrics: ${s.metrics || 'N/A'}\n- Tech: ${s.technologiesUsed?.join(', ') || 'N/A'}`
       )
+      .join('\n\n');
+
+    const customQAsContext = customQAs
+      .map((qa, i) => `[CUSTOM Q&A ${i + 1}]\nQuestion: "${qa.question}"\nCandidate's Direct Answer: "${qa.answer}"`)
       .join('\n\n');
 
     const documentsContext = documents
@@ -155,28 +161,29 @@ CORE PRINCIPLES OF PAID COPILOT EXCELLENCE:
 1. NEVER output a wall of robotic text that the candidate has to read aloud word-for-word.
 2. Provide a 1-sentence "Anchor Hook" the candidate can begin saying IMMEDIATELY while glancing at the rest.
 3. Provide 3-4 bullet points formatted with bold asterisks for key metrics and technical mechanisms (e.g. *decoupled via Kafka*, *reduced p99 by 68%*, *distributed lock with Redis*).
-4. Strictly ground answers in the candidate's actual resume, STAR stories, and added knowledge documents.
-5. If technical coding: provide the optimal clean solution, Big-O complexity, edge cases, and an explanation bullet.
-6. If system design: specify components, data flows, scalability bottlenecks, and tradeoffs.
-7. Include 1-2 intelligent questions the candidate can ask back to impress the interviewer.`;
+4. Strictly ground answers in the candidate's actual resume, their custom Q&A bank, and added knowledge documents.
+5. If the interview question relates to a topic in the Candidate's Custom Q&A Bank, ALWAYS adopt their exact personal answer, narrative, and perspective.
+6. If technical coding: provide the optimal clean solution, Big-O complexity, edge cases, and an explanation bullet.
+7. If system design: specify components, data flows, scalability bottlenecks, and tradeoffs.
+8. Include 1-2 intelligent questions the candidate can ask back to impress the interviewer.`;
 
     let prompt = `LIVE INTERVIEW QUESTION / SCENARIO:
 "${question || 'Analyze the captured problem on screen and provide the optimal solution and explanation.'}"
 
 RESPONSE MODE: ${mode.toUpperCase()}
 
-CANDIDATE PROFILE:
-- Name: ${profile.fullName || 'Candidate'}
-- Target Role: ${jobContext.jobTitle || profile.targetRole || 'Senior Engineer'}
-- Years Exp: ${profile.yearsOfExperience}
-- Core Skills: ${profile.coreSkills.join(', ')}
-- Executive Bio: ${profile.summary || 'Accomplished engineering background.'}
+CANDIDATE PRIMARY RESUME & TECHNICAL KNOWLEDGE BASE:
+${profile.resumeText ? profile.resumeText.slice(0, 8000) : `Name: ${profile.fullName}\nSkills: ${profile.coreSkills.join(', ')}\nSummary: ${profile.summary}`}
+
+CANDIDATE CUSTOM Q&A KNOWLEDGE BANK (HIGHEST PRIORITY PERSONAL ANSWERS):
+${customQAsContext || 'No custom Q&A answers configured yet.'}
 
 TARGET COMPANY & JOB DESCRIPTION:
 - Company: ${jobContext.companyName || 'Target Company'}
-- Role: ${jobContext.jobTitle || 'Target Role'}
-- Key Required Skills: ${jobContext.requiredSkills.join(', ')}
+- Target Role: ${jobContext.jobTitle || profile.targetRole || 'Target Role'}
+- Key Required Skills: ${jobContext.requiredSkills.length > 0 ? jobContext.requiredSkills.join(', ') : 'Aligned to Job Description'}
 - Interview Stage: ${jobContext.interviewStage || 'Technical/Behavioral'}
+- Job Description Details: ${jobContext.jobDescription ? jobContext.jobDescription.slice(0, 3000) : 'Standard industry expectations'}
 - Company Values: ${jobContext.companyValues?.join(', ') || 'N/A'}
 - Recent News: ${jobContext.recentCompanyNews?.join('; ') || 'N/A'}
 
@@ -315,6 +322,49 @@ Return JSON:
         interviewVibe: 'Focus on demonstrated problem solving, depth, and leadership.',
       };
     }
+  },
+
+  async parseJobDescriptionFromHtml(
+    rawText: string,
+    apiKey: string
+  ): Promise<{
+    companyName?: string;
+    jobTitle?: string;
+    jobDescription: string;
+    requiredSkills: string[];
+  }> {
+    const prompt = `Extract structured job information from the following raw webpage text scraped from a job listing page:
+"""
+${rawText.slice(0, 12000)}
+"""
+
+Return JSON:
+{
+  "companyName": "Company name hiring for this role",
+  "jobTitle": "Exact job title / role being hired",
+  "jobDescription": "Clean, complete job description including responsibilities, requirements, and nice-to-haves. Keep all important details.",
+  "requiredSkills": ["Skill 1", "Skill 2", "Skill 3"]
+}
+Return ONLY raw JSON. No markdown or code fences.`;
+
+    const res = await this.callGemini({
+      apiKey,
+      prompt,
+      enableSearchGrounding: false,
+    });
+
+    try {
+      const parsed = this.cleanJsonParse(res.text);
+      if (parsed?.jobDescription) return parsed;
+    } catch {}
+
+    // Fallback: use raw text as job description
+    return {
+      companyName: '',
+      jobTitle: '',
+      jobDescription: rawText.slice(0, 6000),
+      requiredSkills: [],
+    };
   },
 
   async parseResumeText(rawResume: string, apiKey?: string): Promise<Partial<CandidateProfile>> {

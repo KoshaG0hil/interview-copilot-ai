@@ -6,6 +6,7 @@ import {
   CueCard,
   KnowledgeDocument,
   PersistentDataStore,
+  CustomQAItem,
 } from '../types';
 
 const STORAGE_KEYS = {
@@ -15,6 +16,7 @@ const STORAGE_KEYS = {
   JOB_CONTEXT: 'interview_copilot_job_context',
   SETTINGS: 'interview_copilot_settings',
   HISTORY: 'interview_copilot_cue_history',
+  CUSTOM_QAS: 'interview_copilot_custom_qas',
 };
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -70,6 +72,7 @@ export const storageService = {
           if (diskData.stories) localStorage.setItem(STORAGE_KEYS.STORIES, JSON.stringify(diskData.stories));
           if (diskData.jobContext) localStorage.setItem(STORAGE_KEYS.JOB_CONTEXT, JSON.stringify(diskData.jobContext));
           if (diskData.settings) localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(diskData.settings));
+          if (diskData.customQAs) localStorage.setItem(STORAGE_KEYS.CUSTOM_QAS, JSON.stringify(diskData.customQAs));
           return diskData;
         }
       } catch (err) {
@@ -88,6 +91,7 @@ export const storageService = {
         jobContext: this.getJobContext(),
         settings: this.getSettings(),
         history: this.getHistory(),
+        customQAs: this.getCustomQAs(),
       };
       window.electronAPI.savePersistentData(fullStore).catch((e) => {
         console.warn('Failed disk sync:', e);
@@ -200,5 +204,29 @@ export const storageService = {
   saveHistory(history: CueCard[]): void {
     localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(history.slice(-50)));
     this.syncToDisk();
+  },
+
+  getCustomQAs(): CustomQAItem[] {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.CUSTOM_QAS);
+      if (data) return JSON.parse(data);
+    } catch {}
+    return [];
+  },
+
+  saveCustomQAs(qas: CustomQAItem[]): void {
+    localStorage.setItem(STORAGE_KEYS.CUSTOM_QAS, JSON.stringify(qas));
+    this.syncToDisk();
+  },
+
+  addCustomQA(qa: CustomQAItem): void {
+    const existing = this.getCustomQAs();
+    const updated = [qa, ...existing.filter((q) => q.id !== qa.id)];
+    this.saveCustomQAs(updated);
+  },
+
+  deleteCustomQA(id: string): void {
+    const existing = this.getCustomQAs();
+    this.saveCustomQAs(existing.filter((q) => q.id !== id));
   },
 };

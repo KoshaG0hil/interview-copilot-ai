@@ -8,6 +8,7 @@ import {
   AppSettings,
   TranscriptItem,
   KnowledgeDocument,
+  CustomQAItem,
 } from '../../types';
 import { geminiService } from '../../services/gemini';
 import { speechService } from '../../services/speechRecognition';
@@ -30,6 +31,7 @@ interface StealthHudProps {
   jobContext: CompanyJobContext;
   settings: AppSettings;
   documents?: KnowledgeDocument[];
+  customQAs?: CustomQAItem[];
   onUpdateSettings: (settings: AppSettings) => void;
   onSwitchToHub: () => void;
 }
@@ -40,6 +42,7 @@ export const StealthHud: React.FC<StealthHudProps> = ({
   jobContext,
   settings,
   documents = [],
+  customQAs = [],
   onUpdateSettings,
   onSwitchToHub,
 }) => {
@@ -132,6 +135,7 @@ export const StealthHud: React.FC<StealthHudProps> = ({
         jobContext,
         settings,
         documents,
+        customQAs,
         screenImageBase64,
       });
 

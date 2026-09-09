@@ -242,6 +242,58 @@ ipcMain.handle('capture-screen', async () => {
   }
 });
 
+// IPC Handler to fetch web content / Job Descriptions from URLs (bypasses browser CORS)
+ipcMain.handle('fetch-url', async (_event, url: string) => {
+  try {
+    if (!url || (!url.startsWith('http://') && !url.startsWith('https://'))) {
+      return { success: false, error: 'Invalid URL. URL must start with http:// or https://' };
+    }
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36',
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+      redirect: 'follow',
+    });
+
+    if (!response.ok) {
+      return { success: false, error: `Server responded with HTTP ${response.status}: ${response.statusText}` };
+    }
+
+    const html = await response.text();
+
+    // Clean HTML to extract readable job description text
+    const text = html
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ' ')
+      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, ' ')
+      .replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, ' ')
+      .replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, ' ')
+      .replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, ' ')
+      .replace(/<header\b[^<]*(?:(?!<\/header>)<[^<]*)*<\/header>/gi, ' ')
+      .replace(/<br\s*[\/]?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n\n')
+      .replace(/<\/div>/gi, '\n')
+      .replace(/<\/li>/gi, '\n')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;/gi, "'")
+      .replace(/[ \t]+/g, ' ')
+      .replace(/\n\s*\n\s*\n+/g, '\n\n')
+      .trim();
+
+    return { success: true, content: text.slice(0, 30000) };
+  } catch (err: any) {
+    console.error('Fetch URL error in main process:', err);
+    return { success: false, error: err?.message || 'Failed to fetch job URL' };
+  }
+});
+
 // Native Gemini API Integration with Google Search Grounding
 ipcMain.handle('generate-gemini-content', async (_event, payload: any) => {
   try {

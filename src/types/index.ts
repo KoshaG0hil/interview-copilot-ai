@@ -30,6 +30,14 @@ export interface StarStory {
   technologiesUsed?: string[];
 }
 
+export interface CustomQAItem {
+  id: string;
+  question: string;
+  answer: string;
+  category?: 'background' | 'technical' | 'behavioral' | 'role-specific' | 'custom';
+  dateAdded: string;
+}
+
 export interface CompanyJobContext {
   companyName: string;
   companyIndustry?: string;
@@ -40,6 +48,7 @@ export interface CompanyJobContext {
   requiredSkills: string[];
   interviewStage?: string; // 'screening' | 'technical' | 'system-design' | 'behavioral' | 'hiring-manager'
   notes?: string;
+  jobUrl?: string;
 }
 
 export type ResponseMode = 'behavioral' | 'technical' | 'system-design' | 'quick-bullet' | 'assessment';
@@ -162,6 +171,7 @@ export interface PersistentDataStore {
   jobContext: CompanyJobContext;
   settings: AppSettings;
   history: CueCard[];
+  customQAs?: CustomQAItem[];
   mockSessions?: MockInterviewSession[];
   assessments?: AssessmentSolution[];
 }
