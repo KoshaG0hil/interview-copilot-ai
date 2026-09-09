@@ -25,5 +25,6 @@ if %errorlevel% neq 0 (
 echo.
 echo [INFO] Launching Interview Copilot AI...
 echo.
-call electron .
+set NODE_ENV=production
+call npx electron .
 pause
