@@ -1,22 +1,29 @@
 @echo off
 title Interview Copilot AI - Launcher
 echo ========================================================
-echo   Launching Interview Copilot AI (Stealth HUD & Hub)
+echo   Interview Copilot AI - Building Latest Version...
 echo ========================================================
 echo.
 
-REM Check if node_modules exists
+REM Check if node_modules exists, install if missing
 if not exist "node_modules\" (
-    echo [INFO] Installing dependencies...
+    echo [INFO] Installing dependencies for the first time...
     call npm install
+    echo.
 )
 
-REM Build typescript if dist-electron doesn't exist
-if not exist "dist-electron\main.js" (
-    echo [INFO] Compiling desktop app...
-    call npm run build
+REM Always rebuild to pick up latest code changes
+echo [INFO] Building latest version (takes ~10 seconds)...
+call npm run build
+if %errorlevel% neq 0 (
+    echo.
+    echo [ERROR] Build failed. Please check the error above.
+    pause
+    exit /b 1
 )
 
-echo [INFO] Starting application in dev mode...
-call npm run electron:dev
+echo.
+echo [INFO] Launching Interview Copilot AI...
+echo.
+call electron .
 pause
