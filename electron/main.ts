@@ -37,6 +37,14 @@ function createMainWindow() {
     backgroundColor: '#090d16',
   });
 
+  // Auto-grant microphone, screen capture, and audio permissions for live interview listening
+  mainWindow.webContents.session.setPermissionRequestHandler((_webContents, _permission, callback) => {
+    callback(true);
+  });
+  mainWindow.webContents.session.setPermissionCheckHandler(() => {
+    return true;
+  });
+
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173');
   } else {

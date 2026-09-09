@@ -54,8 +54,27 @@ export const StealthHud: React.FC<StealthHudProps> = ({
   const [transcripts, setTranscripts] = useState<TranscriptItem[]>([]);
   const [isListening, setIsListening] = useState(false);
   const [currentSpeaker, setCurrentSpeaker] = useState<'interviewer' | 'candidate'>('interviewer');
+  const [isAutoAnswer, setIsAutoAnswer] = useState<boolean>(() => settings.autoAnswerOnQuestionDetected !== false);
   const [activeTab, setActiveTab] = useState<'card' | 'transcript' | 'history'>('card');
   const [statusNotification, setStatusNotification] = useState<string | null>(null);
+
+  function isProbableQuestion(text: string): boolean {
+    const t = text.trim().toLowerCase();
+    if (t.length < 10) return false;
+    if (t.endsWith('?')) return true;
+
+    const questionStarters = [
+      'what', 'why', 'how', 'who', 'when', 'where', 'which',
+      'tell me', 'walk me through', 'describe', 'explain', 'give me',
+      'can you', 'could you', 'would you', 'is there', 'are there',
+      'do you', 'have you', 'did you', 'in your experience',
+      'how would you', 'how do you', 'what would you', 'what is',
+      'what are', 'share a time', 'talk about', 'discuss'
+    ];
+
+    const words = t.split(/\s+/);
+    return questionStarters.some((prefix) => t.startsWith(prefix)) || (words.length >= 6 && t.includes('?'));
+  }
 
   // Initialize Speech Recognition & Global Shortcuts
   useEffect(() => {
@@ -78,13 +97,14 @@ export const StealthHud: React.FC<StealthHudProps> = ({
           return [...prev, newItem];
         });
 
-        // If auto-answer is enabled and a full question is detected
+        // If auto-answer is enabled and an interviewer statement or question is detected
         if (
-          settings.autoAnswerOnQuestionDetected &&
+          isAutoAnswer &&
           data.isFinal &&
           data.speaker === 'interviewer' &&
-          data.text.endsWith('?')
+          (isProbableQuestion(data.text) || data.text.split(' ').length >= 6)
         ) {
+          notify(`🎤 Question detected: "${data.text.slice(0, 45)}..." — Generating answer...`);
           handleGenerateAnswer(data.text);
         }
       });
@@ -108,11 +128,21 @@ export const StealthHud: React.FC<StealthHudProps> = ({
       }
     });
 
+    // Keyboard listener for Alt+S to toggle speaker
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.altKey && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        toggleSpeaker();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
     return () => {
       speechService.stop();
       cleanupShortcuts?.();
+      window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [settings, transcripts, currentQuestion]);
+  }, [settings, transcripts, currentQuestion, isAutoAnswer]);
 
   const handleGenerateAnswer = async (
     questionToSolve: string = currentQuestion,
@@ -392,6 +422,12 @@ export const StealthHud: React.FC<StealthHudProps> = ({
         onToggleMic={toggleMic}
         currentSpeaker={currentSpeaker}
         onToggleSpeaker={toggleSpeaker}
+        isAutoAnswer={isAutoAnswer}
+        onToggleAutoAnswer={() => {
+          const next = !isAutoAnswer;
+          setIsAutoAnswer(next);
+          onUpdateSettings({ ...settings, autoAnswerOnQuestionDetected: next });
+        }}
         onCaptureScreen={handleScreenCapture}
         opacity={settings.hudOpacity}
         onChangeOpacity={(newOpacity) => {
