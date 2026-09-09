@@ -52,7 +52,7 @@ Control the copilot even while focused inside Zoom, Teams, or your IDE:
 ### 1. Clone & Install
 ```bash
 # Clone repository
-git clone https://github.com/your-username/interview-copilot-ai.git
+git clone https://github.com/KoshaG0hil/interview-copilot-ai.git
 cd interview-copilot-ai
 
 # Install dependencies

@@ -1,41 +1,31 @@
 @echo off
-title Push Interview Copilot to GitHub
+title Push Interview Copilot to GitHub (KoshaG0hil)
 echo ========================================================
-echo   Push Interview Copilot AI to your GitHub
+echo   Pushing Interview Copilot AI to GitHub:
+echo   https://github.com/KoshaG0hil/interview-copilot-ai
 echo ========================================================
 echo.
-echo Step 1: Go to https://github.com/new in your browser
-echo Step 2: Name your repository (e.g., interview-copilot-ai)
-echo Step 3: Choose Public or Private, and DO NOT initialize with README/license
-echo Step 4: Click "Create repository"
-echo.
-echo ========================================================
-set /p REPO_URL="Enter your GitHub Repository URL (e.g. https://github.com/username/interview-copilot-ai.git): "
 
-if "%REPO_URL%"=="" (
-    echo [ERROR] No URL entered. Exiting...
-    pause
-    exit /b
-)
-
-echo.
-echo [INFO] Setting up git remote origin...
 git remote remove origin 2>nul
-git remote add origin %REPO_URL%
+git remote add origin https://github.com/KoshaG0hil/interview-copilot-ai.git
 git branch -M main
 
-echo [INFO] Pushing code to GitHub...
+echo [INFO] Pushing main branch to GitHub...
 git push -u origin main
 
 if %ERRORLEVEL% EQU 0 (
     echo.
     echo ========================================================
-    echo [SUCCESS] Your repository is live on GitHub!
+    echo [SUCCESS] Your repository is now live at:
+    echo https://github.com/KoshaG0hil/interview-copilot-ai
     echo Anyone with the link can clone and run it!
     echo ========================================================
 ) else (
     echo.
-    echo [ERROR] Push failed. Make sure you are logged into Git/GitHub on your machine.
+    echo [NOTE] If the repository does not exist yet on GitHub:
+    echo 1. Go to https://github.com/new?name=interview-copilot-ai
+    echo 2. Click "Create repository"
+    echo 3. Run this script again!
 )
 echo.
 pause
