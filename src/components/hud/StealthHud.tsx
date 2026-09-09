@@ -70,7 +70,6 @@ export const StealthHud: React.FC<StealthHudProps> = ({
           };
 
           if (!data.isFinal && prev.length > 0 && !prev[prev.length - 1].isFinal) {
-            // Update last interim transcript
             return [...prev.slice(0, -1), newItem];
           }
           return [...prev, newItem];
@@ -156,7 +155,9 @@ export const StealthHud: React.FC<StealthHudProps> = ({
     const imageBase64 = await window.electronAPI.captureScreen();
     if (imageBase64) {
       handleGenerateAnswer(
-        'Analyze this coding problem / assessment question on screen. Provide optimal solution and code.',
+        activeMode === 'assessment'
+          ? 'Analyze this online assessment problem on screen. Provide optimal solution, Big-O complexity, and edge cases.'
+          : 'Analyze this question/problem on screen and provide the optimal answer.',
         imageBase64
       );
     } else {
@@ -196,6 +197,13 @@ export const StealthHud: React.FC<StealthHudProps> = ({
     speechService.setSpeaker(next);
   };
 
+  const platformBadge =
+    settings.platformProfile === 'teams'
+      ? 'TEAMS PROTECTED'
+      : settings.platformProfile === 'google-meet'
+      ? 'MEET PROTECTED'
+      : 'ZOOM PROTECTED';
+
   return (
     <div
       className="glass-hud flex flex-col h-screen w-screen overflow-hidden text-slate-100 rounded-xl"
@@ -203,12 +211,12 @@ export const StealthHud: React.FC<StealthHudProps> = ({
         opacity: settings.hudOpacity,
       }}
     >
-      {/* Draggable Top Bar with Stealth Indicator */}
+      {/* Draggable Top Bar with Stealth & Platform Indicator */}
       <div className="window-drag-region h-8 px-3 bg-slate-950/90 border-b border-slate-800/80 flex items-center justify-between select-none shrink-0">
         <div className="flex items-center gap-2">
-          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-mono">
+          <div className="flex items-center gap-1.5 px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-mono font-bold">
             <ShieldCheck className="w-3 h-3" />
-            <span>STEALTH ON (Invisible to Zoom/Meet)</span>
+            <span>{platformBadge}</span>
           </div>
           {jobContext.companyName && (
             <span className="text-[11px] text-slate-400 font-medium truncate max-w-[140px]">
@@ -387,6 +395,7 @@ export const StealthHud: React.FC<StealthHudProps> = ({
           if (window.electronAPI) window.electronAPI.setOpacity(newOpacity);
         }}
         onSwitchToHub={onSwitchToHub}
+        platformProfile={settings.platformProfile}
       />
     </div>
   );

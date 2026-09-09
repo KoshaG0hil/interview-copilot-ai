@@ -105,6 +105,7 @@ export const App: React.FC = () => {
           jobContext={jobContext}
           onUpdateJobContext={handleUpdateJobContext}
           settings={settings}
+          onUpdateSettings={handleUpdateSettings}
           onOpenSettings={() => setIsSettingsOpen(true)}
           onLaunchHud={handleLaunchHud}
         />

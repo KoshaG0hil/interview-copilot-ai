@@ -27,6 +27,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   teleprompterSpeed: 'normal',
   autoAnswerOnQuestionDetected: false,
   hotkeyTrigger: 'Ctrl+\\',
+  platformProfile: 'zoom',
   hasSeenGuide: false,
 };
 

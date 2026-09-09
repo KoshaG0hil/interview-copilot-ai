@@ -1,6 +1,17 @@
 import React from 'react';
-import { ResponseMode } from '../../types';
-import { Mic, MicOff, Camera, MessageSquare, Code, Layers, Zap, Eye, LayoutDashboard, ShieldCheck } from 'lucide-react';
+import { ResponseMode, PlatformProfileType } from '../../types';
+import {
+  Mic,
+  MicOff,
+  Camera,
+  MessageSquare,
+  Code,
+  Layers,
+  Zap,
+  Eye,
+  LayoutDashboard,
+  Code2,
+} from 'lucide-react';
 
 interface QuickActionToolbarProps {
   currentMode: ResponseMode;
@@ -13,6 +24,7 @@ interface QuickActionToolbarProps {
   opacity: number;
   onChangeOpacity: (opacity: number) => void;
   onSwitchToHub: () => void;
+  platformProfile?: PlatformProfileType;
 }
 
 export const QuickActionToolbar: React.FC<QuickActionToolbarProps> = ({
@@ -26,11 +38,13 @@ export const QuickActionToolbar: React.FC<QuickActionToolbarProps> = ({
   opacity,
   onChangeOpacity,
   onSwitchToHub,
+  platformProfile = 'zoom',
 }) => {
   const modes: { id: ResponseMode; label: string; icon: any }[] = [
     { id: 'behavioral', label: 'STAR', icon: MessageSquare },
     { id: 'technical', label: 'Code', icon: Code },
     { id: 'system-design', label: 'Design', icon: Layers },
+    { id: 'assessment', label: 'OA Solver', icon: Code2 },
     { id: 'quick-bullet', label: 'Rapid', icon: Zap },
   ];
 
@@ -91,7 +105,7 @@ export const QuickActionToolbar: React.FC<QuickActionToolbarProps> = ({
         <button
           onClick={onCaptureScreen}
           className="p-1.5 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-sky-300 transition"
-          title="Capture Screen for Coding Problem or Diagram (Ctrl+Shift+S)"
+          title="Capture Screen for Coding Problem or Assessment (Ctrl+Shift+S)"
         >
           <Camera className="w-3.5 h-3.5" />
         </button>

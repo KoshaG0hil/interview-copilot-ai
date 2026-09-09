@@ -42,15 +42,70 @@ export interface CompanyJobContext {
   notes?: string;
 }
 
-export type ResponseMode = 'behavioral' | 'technical' | 'system-design' | 'quick-bullet';
+export type ResponseMode = 'behavioral' | 'technical' | 'system-design' | 'quick-bullet' | 'assessment';
+
+export type PlatformProfileType = 'zoom' | 'teams' | 'google-meet';
+
+export interface PlatformProfileConfig {
+  id: PlatformProfileType;
+  name: string;
+  iconName: string;
+  screenShareAdvice: string;
+  audioCaptureAdvice: string;
+  recommendedPosition: string;
+  protectionActive: boolean;
+}
+
+export interface MockInterviewTurn {
+  id: string;
+  question: string;
+  candidateAnswer?: string;
+  feedback?: {
+    score: number; // 1 - 10
+    strengths: string[];
+    improvements: string[];
+    modelAnswer: string;
+    starAdherence?: string;
+  };
+  timestamp: number;
+}
+
+export interface MockInterviewSession {
+  id: string;
+  timestamp: number;
+  role: string;
+  company: string;
+  stage: string;
+  difficulty: 'entry' | 'mid' | 'senior' | 'staff-principal';
+  interviewerPersona: string;
+  turns: MockInterviewTurn[];
+  status: 'in-progress' | 'completed';
+  overallScore?: number;
+  overallSummary?: string;
+  hiringRecommendation?: 'Strong Hire' | 'Hire' | 'Lean Hire' | 'Lean No Hire' | 'No Hire';
+}
+
+export interface AssessmentSolution {
+  id: string;
+  platform: 'hackerrank' | 'leetcode' | 'codesignal' | 'karat' | 'codility' | 'other';
+  problemTitle: string;
+  problemStatement: string;
+  language: string;
+  optimalCode: string;
+  timeComplexity: string;
+  spaceComplexity: string;
+  algorithmExplanation: string;
+  testCases: { input: string; expectedOutput: string; explanation?: string }[];
+  edgeCases: string[];
+}
 
 export interface CueCard {
   id: string;
   timestamp: number;
   question: string;
   mode: ResponseMode;
-  headline: string; // One sentence punchy anchor to say immediately
-  bulletPoints: string[]; // 3-4 bullet points to speak naturally
+  headline: string;
+  bulletPoints: string[];
   starMapping?: {
     storyId?: string;
     storyTitle?: string;
@@ -96,6 +151,7 @@ export interface AppSettings {
   teleprompterSpeed: 'normal' | 'fast';
   autoAnswerOnQuestionDetected: boolean;
   hotkeyTrigger: string;
+  platformProfile: PlatformProfileType;
   hasSeenGuide?: boolean;
 }
 
@@ -106,4 +162,6 @@ export interface PersistentDataStore {
   jobContext: CompanyJobContext;
   settings: AppSettings;
   history: CueCard[];
+  mockSessions?: MockInterviewSession[];
+  assessments?: AssessmentSolution[];
 }

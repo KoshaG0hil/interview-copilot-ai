@@ -5,12 +5,16 @@ import {
   CompanyJobContext,
   AppSettings,
   KnowledgeDocument,
+  PlatformProfileType,
 } from '../../types';
 import { ResumeManager } from './ResumeManager';
 import { StoryBank } from './StoryBank';
 import { JobCompanySetup } from './JobCompanySetup';
 import { PracticeArena } from './PracticeArena';
+import { MockInterviewArena } from './MockInterviewArena';
+import { AssessmentCopilot } from './AssessmentCopilot';
 import { UserGuideModal } from '../common/UserGuideModal';
+import { PlatformProfilesModal } from '../common/PlatformProfilesModal';
 import {
   FileText,
   BookOpen,
@@ -21,6 +25,9 @@ import {
   HelpCircle,
   ChevronRight,
   HardDrive,
+  Code2,
+  Video,
+  UserCheck,
 } from 'lucide-react';
 
 interface HubLayoutProps {
@@ -34,6 +41,7 @@ interface HubLayoutProps {
   jobContext: CompanyJobContext;
   onUpdateJobContext: (context: CompanyJobContext) => void;
   settings: AppSettings;
+  onUpdateSettings: (settings: AppSettings) => void;
   onOpenSettings: () => void;
   onLaunchHud: () => void;
 }
@@ -49,11 +57,15 @@ export const HubLayout: React.FC<HubLayoutProps> = ({
   jobContext,
   onUpdateJobContext,
   settings,
+  onUpdateSettings,
   onOpenSettings,
   onLaunchHud,
 }) => {
-  const [activeTab, setActiveTab] = useState<'resume' | 'stories' | 'company' | 'practice'>('resume');
+  const [activeTab, setActiveTab] = useState<
+    'resume' | 'stories' | 'company' | 'mock' | 'assessment' | 'practice'
+  >('resume');
   const [isGuideOpen, setIsGuideOpen] = useState(false);
+  const [isPlatformModalOpen, setIsPlatformModalOpen] = useState(false);
 
   const tabs = [
     {
@@ -64,8 +76,16 @@ export const HubLayout: React.FC<HubLayoutProps> = ({
     },
     { id: 'stories', label: 'STAR Story Bank', icon: BookOpen, badge: `${stories.length} Stories` },
     { id: 'company', label: 'Company & JD', icon: Building2, badge: jobContext.companyName || 'Setup' },
-    { id: 'practice', label: 'Practice Arena', icon: PlayCircle, badge: 'Mock' },
+    { id: 'mock', label: 'AI Mock Interview', icon: UserCheck, badge: 'Live AI' },
+    { id: 'assessment', label: 'OA / Coding Solver', icon: Code2, badge: 'LeetCode' },
+    { id: 'practice', label: 'Cue Card Preview', icon: PlayCircle, badge: 'Teleprompter' },
   ];
+
+  const getPlatformLabel = (p: PlatformProfileType) => {
+    if (p === 'zoom') return 'Zoom Workplace';
+    if (p === 'teams') return 'MS Teams';
+    return 'Google Meet';
+  };
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans">
@@ -92,7 +112,7 @@ export const HubLayout: React.FC<HubLayoutProps> = ({
         </div>
 
         {/* Center: Tabs */}
-        <nav className="hidden md:flex items-center gap-1 bg-slate-950/80 p-1 rounded-xl border border-slate-800/80">
+        <nav className="hidden xl:flex items-center gap-1 bg-slate-950/80 p-1 rounded-xl border border-slate-800/80">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -100,7 +120,7 @@ export const HubLayout: React.FC<HubLayoutProps> = ({
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition ${
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition ${
                   isActive
                     ? 'bg-sky-500 text-slate-950 shadow-md shadow-sky-500/10'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
@@ -120,16 +140,26 @@ export const HubLayout: React.FC<HubLayoutProps> = ({
           })}
         </nav>
 
-        {/* Right Actions: Guide + Settings + Launch HUD */}
-        <div className="flex items-center gap-2.5">
+        {/* Right Actions: Platform Profiles + Guide + Settings + Launch HUD */}
+        <div className="flex items-center gap-2">
+          {/* Platform Profile Selector Button */}
+          <button
+            onClick={() => setIsPlatformModalOpen(true)}
+            className="px-2.5 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-emerald-400 border border-slate-700/80 transition text-xs font-mono font-semibold flex items-center gap-1.5"
+            title="Configure Zoom, Teams, or Google Meet Protection"
+          >
+            <Video className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">{getPlatformLabel(settings.platformProfile || 'zoom')}</span>
+          </button>
+
           {/* User Guide Button */}
           <button
             onClick={() => setIsGuideOpen(true)}
-            className="px-3 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-sky-400 hover:text-sky-300 border border-slate-700/80 transition text-xs font-semibold flex items-center gap-1.5"
+            className="px-2.5 py-1.5 rounded-xl bg-slate-800/80 hover:bg-slate-800 text-sky-400 hover:text-sky-300 border border-slate-700/80 transition text-xs font-semibold flex items-center gap-1.5"
             title="Read User Setup Guide"
           >
             <HelpCircle className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">User Guide</span>
+            <span className="hidden md:inline">User Guide</span>
           </button>
 
           <button
@@ -142,7 +172,7 @@ export const HubLayout: React.FC<HubLayoutProps> = ({
 
           <button
             onClick={onLaunchHud}
-            className="px-4 py-2 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-slate-950 text-xs font-bold rounded-xl flex items-center gap-2 shadow-lg shadow-sky-500/25 transition group"
+            className="px-3.5 py-2 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-slate-950 text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-lg shadow-sky-500/25 transition group"
           >
             <Shield className="w-4 h-4" />
             <span>Launch Stealth HUD</span>
@@ -183,13 +213,35 @@ export const HubLayout: React.FC<HubLayoutProps> = ({
         <div className="flex items-center gap-3 text-[11px]">
           <span className="flex items-center gap-1 text-emerald-400 font-mono">
             <HardDrive className="w-3.5 h-3.5" />
-            Disk Storage: Persistent
+            Persistent Disk Storage
           </span>
           <span className="text-slate-600">•</span>
           <span className="text-slate-400">
-            Stealth Hotkey: <kbd className="font-mono text-sky-400">Ctrl + \</kbd>
+            Hotkeys: <kbd className="font-mono text-sky-400">Ctrl + \</kbd>
           </span>
         </div>
+      </div>
+
+      {/* Mobile/Tablet Horizontal Tab Bar */}
+      <div className="xl:hidden px-6 py-2 bg-slate-950 border-b border-slate-800/80 overflow-x-auto flex items-center gap-1">
+        {tabs.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition ${
+                isActive
+                  ? 'bg-sky-500 text-slate-950 font-bold'
+                  : 'text-slate-400 hover:text-slate-200 bg-slate-900'
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Main Hub Body */}
@@ -218,6 +270,20 @@ export const HubLayout: React.FC<HubLayoutProps> = ({
           />
         )}
 
+        {activeTab === 'mock' && (
+          <MockInterviewArena
+            profile={profile}
+            stories={stories}
+            jobContext={jobContext}
+            settings={settings}
+            documents={documents}
+          />
+        )}
+
+        {activeTab === 'assessment' && (
+          <AssessmentCopilot settings={settings} />
+        )}
+
         {activeTab === 'practice' && (
           <PracticeArena
             profile={profile}
@@ -234,6 +300,16 @@ export const HubLayout: React.FC<HubLayoutProps> = ({
         isOpen={isGuideOpen}
         onClose={() => setIsGuideOpen(false)}
         onOpenSettings={onOpenSettings}
+      />
+
+      {/* Platform Profiles Modal (Zoom, Teams, Meet) */}
+      <PlatformProfilesModal
+        isOpen={isPlatformModalOpen}
+        onClose={() => setIsPlatformModalOpen(false)}
+        settings={settings}
+        onSelectPlatform={(platform) => {
+          onUpdateSettings({ ...settings, platformProfile: platform });
+        }}
       />
     </div>
   );
