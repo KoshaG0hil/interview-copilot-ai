@@ -102,7 +102,13 @@ export const storageService = {
   getSettings(): AppSettings {
     try {
       const data = localStorage.getItem(STORAGE_KEYS.SETTINGS);
-      return data ? { ...DEFAULT_SETTINGS, ...JSON.parse(data) } : DEFAULT_SETTINGS;
+      const parsed = data ? { ...DEFAULT_SETTINGS, ...JSON.parse(data) } : DEFAULT_SETTINGS;
+      // Migrate any invalid legacy model IDs to the correct current default
+      const validModels = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.5-pro'];
+      if (!validModels.includes(parsed.selectedModel)) {
+        parsed.selectedModel = 'gemini-2.5-flash';
+      }
+      return parsed;
     } catch {
       return DEFAULT_SETTINGS;
     }
