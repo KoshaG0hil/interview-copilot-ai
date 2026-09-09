@@ -294,16 +294,35 @@ ipcMain.handle('fetch-url', async (_event, url: string) => {
   }
 });
 
-// Native Gemini API Integration with Google Search Grounding
+function normalizeModelName(model?: string): string {
+  if (!model) return 'gemini-2.0-flash';
+  const m = model.trim().toLowerCase();
+  if (m.includes('2.5-flash-lite') || m.includes('2.0-flash-lite') || m === 'gemini-flash-lite') {
+    return 'gemini-2.0-flash-lite';
+  }
+  if (m.includes('2.5-flash') || m.includes('3.7-flash') || m.includes('2.0-flash') || m === 'gemini-flash') {
+    return 'gemini-2.0-flash';
+  }
+  if (m.includes('1.5-pro') || m.includes('2.5-pro') || m === 'gemini-pro') {
+    return 'gemini-1.5-pro';
+  }
+  if (m.includes('1.5-flash')) {
+    return 'gemini-1.5-flash';
+  }
+  return model;
+}
+
+// Native Gemini API Integration with Google Search Grounding & Auto-Fallback
 ipcMain.handle('generate-gemini-content', async (_event, payload: any) => {
   try {
-    const key = payload.apiKey || process.env.GEMINI_API_KEY;
+    const rawKey = payload.apiKey || process.env.GEMINI_API_KEY;
+    const key = (typeof rawKey === 'string') ? rawKey.trim() : '';
     if (!key) {
       return { success: false, error: 'No Gemini API Key provided. Please configure it in Settings.' };
     }
 
     const ai = new GoogleGenAI({ apiKey: key });
-    const modelName = payload.model || 'gemini-2.5-flash';
+    let modelName = normalizeModelName(payload.model);
 
     const config: any = {};
     if (payload.systemInstruction) {
@@ -324,11 +343,23 @@ ipcMain.handle('generate-gemini-content', async (_event, payload: any) => {
       ];
     }
 
-    const response = await ai.models.generateContent({
-      model: modelName,
-      contents,
-      config,
-    });
+    let response: any;
+    try {
+      response = await ai.models.generateContent({
+        model: modelName,
+        contents,
+        config,
+      });
+    } catch (modelErr: any) {
+      console.warn(`Gemini call with ${modelName} failed, attempting fallback to gemini-1.5-flash:`, modelErr?.message);
+      // Try fallback to gemini-1.5-flash or gemini-2.0-flash
+      const fallbackModel = modelName === 'gemini-2.0-flash' ? 'gemini-1.5-flash' : 'gemini-2.0-flash';
+      response = await ai.models.generateContent({
+        model: fallbackModel,
+        contents,
+        config,
+      });
+    }
 
     const groundingSources: { title: string; url: string }[] = [];
     const groundingMetadata = (response.candidates?.[0] as any)?.groundingMetadata;
@@ -352,7 +383,7 @@ ipcMain.handle('generate-gemini-content', async (_event, payload: any) => {
     console.error('Gemini API Error in Main:', error);
     return {
       success: false,
-      error: error?.message || 'Failed to generate response from Gemini',
+      error: error?.message || 'Failed to generate response from Gemini. Please verify your API key.',
     };
   }
 });

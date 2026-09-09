@@ -54,12 +54,8 @@ IMPORTANT: Output only the raw JSON.`;
       imageBase64: input.screenImageBase64,
     });
 
-    let raw = res.text.trim();
-    if (raw.startsWith('```json')) raw = raw.replace(/^```json\n?/, '').replace(/\n?```$/, '');
-    else if (raw.startsWith('```')) raw = raw.replace(/^```\n?/, '').replace(/\n?```$/, '');
-
     try {
-      const parsed = JSON.parse(raw);
+      const parsed = geminiService.cleanJsonParse(res.text);
       return {
         id: 'oa-' + Date.now(),
         platform: input.platform || 'other',
@@ -70,8 +66,8 @@ IMPORTANT: Output only the raw JSON.`;
         timeComplexity: parsed.timeComplexity || 'O(N)',
         spaceComplexity: parsed.spaceComplexity || 'O(1)',
         algorithmExplanation: parsed.algorithmExplanation || 'Optimal approach to solve within time limits.',
-        testCases: parsed.testCases || [],
-        edgeCases: parsed.edgeCases || [],
+        testCases: Array.isArray(parsed.testCases) ? parsed.testCases : [],
+        edgeCases: Array.isArray(parsed.edgeCases) ? parsed.edgeCases : [],
       };
     } catch {
       return {
@@ -80,7 +76,7 @@ IMPORTANT: Output only the raw JSON.`;
         problemTitle: 'Assessment Problem',
         problemStatement: input.problemText || '',
         language: input.language,
-        optimalCode: raw,
+        optimalCode: res.text || '',
         timeComplexity: 'O(N)',
         spaceComplexity: 'O(1)',
         algorithmExplanation: 'Optimized algorithmic approach.',

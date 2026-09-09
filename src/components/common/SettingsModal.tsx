@@ -17,15 +17,24 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onSave,
 }) => {
   const [formData, setFormData] = useState<AppSettings>(settings);
-  const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'failed'>('idle');
+  const [testResult, setTestResult] = useState<{ status: 'idle' | 'testing' | 'success' | 'failed'; error?: string }>({ status: 'idle' });
 
   if (!isOpen) return null;
 
   const handleTestKey = async () => {
-    if (!formData.geminiApiKey) return;
-    setTestStatus('testing');
-    const ok = await geminiService.testConnection(formData.geminiApiKey);
-    setTestStatus(ok ? 'success' : 'failed');
+    const key = formData.geminiApiKey.trim();
+    if (!key) return;
+    setTestResult({ status: 'testing' });
+    const res = await geminiService.testConnection(key, formData.selectedModel);
+    if (res.success) {
+      setTestResult({ status: 'success' });
+      // Auto-save verified key to settings state and store immediately
+      const updated = { ...formData, geminiApiKey: key };
+      setFormData(updated);
+      onSave(updated);
+    } else {
+      setTestResult({ status: 'failed', error: res.error });
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -86,28 +95,34 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 value={formData.geminiApiKey}
                 onChange={(e) => {
                   setFormData({ ...formData, geminiApiKey: e.target.value });
-                  setTestStatus('idle');
+                  setTestResult({ status: 'idle' });
                 }}
                 className="flex-1 px-3.5 py-2 text-sm bg-slate-950 border border-slate-700 rounded-xl text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-400 focus:ring-1 focus:ring-sky-400 font-mono"
               />
               <button
                 type="button"
                 onClick={handleTestKey}
-                disabled={!formData.geminiApiKey || testStatus === 'testing'}
+                disabled={!formData.geminiApiKey || testResult.status === 'testing'}
                 className="px-3.5 py-2 text-xs font-medium bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-xl transition disabled:opacity-50"
               >
-                {testStatus === 'testing' ? 'Testing...' : 'Test Key'}
+                {testResult.status === 'testing' ? 'Testing...' : 'Test Key'}
               </button>
             </div>
-            {testStatus === 'success' && (
+            {testResult.status === 'success' && (
               <p className="flex items-center gap-1.5 text-xs text-emerald-400">
-                <CheckCircle2 className="w-3.5 h-3.5" /> API Key is active & validated!
+                <CheckCircle2 className="w-3.5 h-3.5" /> API Key validated & auto-saved to disk!
               </p>
             )}
-            {testStatus === 'failed' && (
-              <p className="flex items-center gap-1.5 text-xs text-rose-400">
-                <AlertCircle className="w-3.5 h-3.5" /> Invalid key or connection failed. Check your API key.
-              </p>
+            {testResult.status === 'failed' && (
+              <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 rounded-xl text-xs text-rose-300 space-y-1">
+                <div className="flex items-center gap-1.5 font-semibold text-rose-400">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  Connection Failed
+                </div>
+                <p className="text-[11px] text-rose-300/90 font-mono break-all leading-relaxed">
+                  {testResult.error || 'Invalid API key or network failure. Verify key at aistudio.google.com/app/apikey'}
+                </p>
+              </div>
             )}
           </div>
 
@@ -122,9 +137,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               onChange={(e) => setFormData({ ...formData, selectedModel: e.target.value })}
               className="w-full px-3.5 py-2 text-sm bg-slate-950 border border-slate-700 rounded-xl text-slate-100 focus:outline-none focus:border-sky-400"
             >
-              <option value="gemini-2.5-flash">Gemini 2.5 Flash (Recommended — Ultra Fast & Free)</option>
-              <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash Lite (Lightest & Fastest)</option>
-              <option value="gemini-2.5-pro">Gemini 2.5 Pro (Most Powerful — Best for Coding & Design)</option>
+              <option value="gemini-2.0-flash">Gemini 2.0 Flash (Recommended — Free & Ultra Low Latency)</option>
+              <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash Lite (Lightest & Fast)</option>
+              <option value="gemini-1.5-flash">Gemini 1.5 Flash (Standard Speed)</option>
+              <option value="gemini-1.5-pro">Gemini 1.5 Pro (Most Powerful — Best for Coding & System Design)</option>
             </select>
           </div>
 

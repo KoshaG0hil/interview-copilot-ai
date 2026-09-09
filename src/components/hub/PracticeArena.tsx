@@ -7,6 +7,7 @@ import {
   CueCard,
   AppSettings,
   KnowledgeDocument,
+  CustomQAItem,
 } from '../../types';
 import { geminiService } from '../../services/gemini';
 import { CueCardView } from '../hud/CueCardView';
@@ -18,6 +19,7 @@ interface PracticeArenaProps {
   jobContext: CompanyJobContext;
   settings: AppSettings;
   documents?: KnowledgeDocument[];
+  customQAs?: CustomQAItem[];
 }
 
 const SAMPLE_QUESTIONS: { mode: ResponseMode; question: string }[] = [
@@ -49,6 +51,7 @@ export const PracticeArena: React.FC<PracticeArenaProps> = ({
   jobContext,
   settings,
   documents = [],
+  customQAs = [],
 }) => {
   const [activeMode, setActiveMode] = useState<ResponseMode>('behavioral');
   const [currentQuestion, setCurrentQuestion] = useState(SAMPLE_QUESTIONS[0].question);
@@ -72,6 +75,7 @@ export const PracticeArena: React.FC<PracticeArenaProps> = ({
         jobContext,
         settings,
         documents,
+        customQAs,
       });
       setCueCard(card);
     } catch (err: any) {

@@ -152,7 +152,7 @@ export interface TranscriptItem {
 
 export interface AppSettings {
   geminiApiKey: string;
-  selectedModel: string; // 'gemini-2.5-flash' | 'gemini-3.7-flash'
+  selectedModel: string; // 'gemini-2.0-flash' | 'gemini-2.0-flash-lite' | 'gemini-1.5-flash' | 'gemini-1.5-pro'
   enableSearchGrounding: boolean;
   contentProtection: boolean; // Hide from Zoom/Meet/Teams
   hudOpacity: number; // 0.2 to 1.0

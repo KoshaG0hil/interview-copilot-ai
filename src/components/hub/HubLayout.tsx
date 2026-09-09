@@ -287,6 +287,7 @@ export const HubLayout: React.FC<HubLayoutProps> = ({
             jobContext={jobContext}
             settings={settings}
             documents={documents}
+            customQAs={customQAs}
           />
         )}
 
@@ -301,6 +302,7 @@ export const HubLayout: React.FC<HubLayoutProps> = ({
             jobContext={jobContext}
             settings={settings}
             documents={documents}
+            customQAs={customQAs}
           />
         )}
       </main>

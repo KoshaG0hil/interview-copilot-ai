@@ -53,14 +53,10 @@ Return JSON:
     let greeting = `Hello ${profile.fullName || 'there'}, thanks for joining today's ${stage} round for ${jobContext.companyName || 'our team'}.`;
     let firstQuestion = `To kick things off, could you walk me through a significant technical challenge you tackled in your recent projects?`;
 
-    let raw = res.text.trim();
-    if (raw.startsWith('```json')) raw = raw.replace(/^```json\n?/, '').replace(/\n?```$/, '');
-    else if (raw.startsWith('```')) raw = raw.replace(/^```\n?/, '').replace(/\n?```$/, '');
-
     try {
-      const parsed = JSON.parse(raw);
-      if (parsed.greeting) greeting = parsed.greeting;
-      if (parsed.firstQuestion) firstQuestion = parsed.firstQuestion;
+      const parsed = geminiService.cleanJsonParse(res.text);
+      if (parsed?.greeting) greeting = parsed.greeting;
+      if (parsed?.firstQuestion) firstQuestion = parsed.firstQuestion;
     } catch {}
 
     const firstTurn: MockInterviewTurn = {
@@ -136,17 +132,13 @@ Return JSON:
       enableSearchGrounding: false,
     });
 
-    let raw = res.text.trim();
-    if (raw.startsWith('```json')) raw = raw.replace(/^```json\n?/, '').replace(/\n?```$/, '');
-    else if (raw.startsWith('```')) raw = raw.replace(/^```\n?/, '').replace(/\n?```$/, '');
-
     try {
-      const parsed = JSON.parse(raw);
+      const parsed = geminiService.cleanJsonParse(res.text);
       return {
         feedback: {
-          score: parsed.score || 7,
-          strengths: parsed.strengths || ['Good technical clarity'],
-          improvements: parsed.improvements || ['Elaborate more on tradeoffs'],
+          score: typeof parsed.score === 'number' ? parsed.score : 7,
+          strengths: Array.isArray(parsed.strengths) ? parsed.strengths : ['Good technical clarity'],
+          improvements: Array.isArray(parsed.improvements) ? parsed.improvements : ['Elaborate more on tradeoffs'],
           modelAnswer: parsed.modelAnswer || 'A structured answer highlighting concrete metrics and architectural decisions.',
           starAdherence: parsed.starAdherence,
         },
@@ -206,14 +198,10 @@ Return JSON:
       enableSearchGrounding: false,
     });
 
-    let raw = res.text.trim();
-    if (raw.startsWith('```json')) raw = raw.replace(/^```json\n?/, '').replace(/\n?```$/, '');
-    else if (raw.startsWith('```')) raw = raw.replace(/^```\n?/, '').replace(/\n?```$/, '');
-
     try {
-      const parsed = JSON.parse(raw);
+      const parsed = geminiService.cleanJsonParse(res.text);
       return {
-        overallScore: parsed.overallScore || 80,
+        overallScore: typeof parsed.overallScore === 'number' ? parsed.overallScore : 80,
         overallSummary: parsed.overallSummary || 'Solid performance across behavioral and technical competencies.',
         hiringRecommendation: parsed.hiringRecommendation || 'Hire',
       };

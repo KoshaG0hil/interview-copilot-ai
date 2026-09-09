@@ -28,16 +28,21 @@ interface GenerateCueCardParams {
 }
 
 export const geminiService = {
-  async testConnection(apiKey: string): Promise<boolean> {
+  async testConnection(apiKey: string, model?: string): Promise<{ success: boolean; error?: string }> {
     try {
+      const cleanKey = apiKey.trim();
+      if (!cleanKey) {
+        return { success: false, error: 'API key is empty' };
+      }
       const res = await this.callGemini({
-        apiKey,
+        apiKey: cleanKey,
+        model: model || 'gemini-2.0-flash',
         prompt: 'Ping: Reply with "OK"',
         enableSearchGrounding: false,
       });
-      return res.success;
-    } catch {
-      return false;
+      return { success: res.success, error: res.error };
+    } catch (err: any) {
+      return { success: false, error: err?.message || 'Connection failed' };
     }
   },
 
@@ -61,7 +66,7 @@ export const geminiService = {
     }
 
     // Direct Browser Fallback
-    const key = payload.apiKey || (import.meta as any).env?.VITE_GEMINI_API_KEY;
+    const key = (payload.apiKey || (import.meta as any).env?.VITE_GEMINI_API_KEY || '').trim();
     if (!key) {
       return {
         success: false,
@@ -70,7 +75,7 @@ export const geminiService = {
       };
     }
 
-    const model = payload.model || 'gemini-2.5-flash';
+    const model = payload.model || 'gemini-2.0-flash';
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
 
     const parts: any[] = [{ text: payload.prompt }];
@@ -236,22 +241,15 @@ IMPORTANT: Only output the raw JSON string. Do not enclose in markdown code fenc
       imageBase64: screenImageBase64,
     });
 
-    let rawText = res.text.trim();
-    if (rawText.startsWith('```json')) {
-      rawText = rawText.replace(/^```json\n?/, '').replace(/\n?```$/, '');
-    } else if (rawText.startsWith('```')) {
-      rawText = rawText.replace(/^```\n?/, '').replace(/\n?```$/, '');
-    }
-
     try {
-      const parsed = JSON.parse(rawText);
+      const parsed = this.cleanJsonParse(res.text);
       return {
         id: 'card-' + Date.now(),
         timestamp: Date.now(),
         question: question || 'Screen Analysis / Live Query',
         mode,
         headline: parsed.headline || 'Recommended opening talking point:',
-        bulletPoints: parsed.bulletPoints || [parsed.headline],
+        bulletPoints: Array.isArray(parsed.bulletPoints) ? parsed.bulletPoints : [parsed.headline || 'Core Point'],
         starMapping: parsed.starMapping,
         codeSnippet: parsed.codeSnippet?.code ? parsed.codeSnippet : undefined,
         systemDesignDetails: parsed.systemDesignDetails,
@@ -260,17 +258,19 @@ IMPORTANT: Only output the raw JSON string. Do not enclose in markdown code fenc
         questionsToAskBack: parsed.questionsToAskBack || [],
       };
     } catch {
+      const fallbackLines = (res.text || '')
+        .split('\n')
+        .map((l: string) => l.trim())
+        .filter((line: string) => line.length > 0)
+        .slice(0, 5);
+
       return {
         id: 'card-' + Date.now(),
         timestamp: Date.now(),
         question: question || 'Live Query',
         mode,
         headline: 'Core Talking Points:',
-        bulletPoints: rawText
-          .split('\n')
-          .map((l) => l.trim())
-          .filter((line) => line.length > 0)
-          .slice(0, 5),
+        bulletPoints: fallbackLines.length > 0 ? fallbackLines : ['Review core question details.'],
         groundingSources: res.groundingSources,
       };
     }

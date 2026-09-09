@@ -3,10 +3,12 @@ import {
   CandidateProfile,
   CompanyJobContext,
   MockInterviewSession,
+  MockInterviewTurn,
   AppSettings,
   StarStory,
   KnowledgeDocument,
   CueCard,
+  CustomQAItem,
 } from '../../types';
 import { mockInterviewService } from '../../services/mockInterviewService';
 import { geminiService } from '../../services/gemini';
@@ -34,6 +36,7 @@ interface MockInterviewArenaProps {
   jobContext: CompanyJobContext;
   settings: AppSettings;
   documents?: KnowledgeDocument[];
+  customQAs?: CustomQAItem[];
 }
 
 export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
@@ -42,6 +45,7 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
   jobContext,
   settings,
   documents = [],
+  customQAs = [],
 }) => {
   const [session, setSession] = useState<MockInterviewSession | null>(null);
   const [selectedPersona, setSelectedPersona] = useState('Senior Bar Raiser (Amazon/Meta)');
@@ -104,6 +108,7 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
         jobContext,
         settings,
         documents,
+        customQAs,
       });
       setLiveCueCard(card);
     } catch (err) {
