@@ -28,6 +28,9 @@ export interface ElectronAPI {
   captureScreen: () => Promise<string | null>;
   openExternal: (url: string) => Promise<void>;
   generateGeminiContent: (payload: GeminiRequestPayload) => Promise<GeminiResponsePayload>;
+  loadPersistentData: () => Promise<any | null>;
+  savePersistentData: (data: any) => Promise<boolean>;
+  getDataPath: () => Promise<string>;
   onGlobalShortcut: (callback: (action: string) => void) => () => void;
   onAudioTranscript: (callback: (data: { text: string; isFinal: boolean; source: 'mic' | 'system' }) => void) => () => void;
 }
@@ -44,6 +47,9 @@ const electronAPI: ElectronAPI = {
   captureScreen: () => ipcRenderer.invoke('capture-screen'),
   openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
   generateGeminiContent: (payload: GeminiRequestPayload) => ipcRenderer.invoke('generate-gemini-content', payload),
+  loadPersistentData: () => ipcRenderer.invoke('load-persistent-data'),
+  savePersistentData: (data: any) => ipcRenderer.invoke('save-persistent-data', data),
+  getDataPath: () => ipcRenderer.invoke('get-data-path'),
   onGlobalShortcut: (callback: (action: string) => void) => {
     const handler = (_event: any, action: string) => callback(action);
     ipcRenderer.on('shortcut-trigger', handler);

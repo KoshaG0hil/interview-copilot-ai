@@ -1,7 +1,16 @@
-import { CandidateProfile, StarStory, CompanyJobContext, AppSettings, CueCard } from '../types';
+import {
+  CandidateProfile,
+  StarStory,
+  CompanyJobContext,
+  AppSettings,
+  CueCard,
+  KnowledgeDocument,
+  PersistentDataStore,
+} from '../types';
 
 const STORAGE_KEYS = {
   PROFILE: 'interview_copilot_profile',
+  DOCUMENTS: 'interview_copilot_documents',
   STORIES: 'interview_copilot_stories',
   JOB_CONTEXT: 'interview_copilot_job_context',
   SETTINGS: 'interview_copilot_settings',
@@ -18,6 +27,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   teleprompterSpeed: 'normal',
   autoAnswerOnQuestionDetected: false,
   hotkeyTrigger: 'Ctrl+\\',
+  hasSeenGuide: false,
 };
 
 const DEFAULT_STORIES: StarStory[] = [
@@ -48,6 +58,42 @@ const DEFAULT_STORIES: StarStory[] = [
 ];
 
 export const storageService = {
+  async init(): Promise<PersistentDataStore | null> {
+    if (window.electronAPI?.loadPersistentData) {
+      try {
+        const diskData = await window.electronAPI.loadPersistentData();
+        if (diskData) {
+          // Sync disk to localStorage for redundancy
+          if (diskData.profile) localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(diskData.profile));
+          if (diskData.documents) localStorage.setItem(STORAGE_KEYS.DOCUMENTS, JSON.stringify(diskData.documents));
+          if (diskData.stories) localStorage.setItem(STORAGE_KEYS.STORIES, JSON.stringify(diskData.stories));
+          if (diskData.jobContext) localStorage.setItem(STORAGE_KEYS.JOB_CONTEXT, JSON.stringify(diskData.jobContext));
+          if (diskData.settings) localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(diskData.settings));
+          return diskData;
+        }
+      } catch (err) {
+        console.warn('Could not read from Electron persistent storage:', err);
+      }
+    }
+    return null;
+  },
+
+  syncToDisk(): void {
+    if (window.electronAPI?.savePersistentData) {
+      const fullStore: PersistentDataStore = {
+        profile: this.getProfile(),
+        documents: this.getDocuments(),
+        stories: this.getStories(),
+        jobContext: this.getJobContext(),
+        settings: this.getSettings(),
+        history: this.getHistory(),
+      };
+      window.electronAPI.savePersistentData(fullStore).catch((e) => {
+        console.warn('Failed disk sync:', e);
+      });
+    }
+  },
+
   getSettings(): AppSettings {
     try {
       const data = localStorage.getItem(STORAGE_KEYS.SETTINGS);
@@ -59,6 +105,7 @@ export const storageService = {
 
   saveSettings(settings: AppSettings): void {
     localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+    this.syncToDisk();
   },
 
   getProfile(): CandidateProfile {
@@ -79,6 +126,31 @@ export const storageService = {
 
   saveProfile(profile: CandidateProfile): void {
     localStorage.setItem(STORAGE_KEYS.PROFILE, JSON.stringify(profile));
+    this.syncToDisk();
+  },
+
+  getDocuments(): KnowledgeDocument[] {
+    try {
+      const data = localStorage.getItem(STORAGE_KEYS.DOCUMENTS);
+      if (data) return JSON.parse(data);
+    } catch {}
+    return [];
+  },
+
+  saveDocuments(documents: KnowledgeDocument[]): void {
+    localStorage.setItem(STORAGE_KEYS.DOCUMENTS, JSON.stringify(documents));
+    this.syncToDisk();
+  },
+
+  addDocument(doc: KnowledgeDocument): void {
+    const existing = this.getDocuments();
+    const updated = [doc, ...existing.filter((d) => d.id !== doc.id)];
+    this.saveDocuments(updated);
+  },
+
+  deleteDocument(id: string): void {
+    const existing = this.getDocuments();
+    this.saveDocuments(existing.filter((d) => d.id !== id));
   },
 
   getStories(): StarStory[] {
@@ -91,6 +163,7 @@ export const storageService = {
 
   saveStories(stories: StarStory[]): void {
     localStorage.setItem(STORAGE_KEYS.STORIES, JSON.stringify(stories));
+    this.syncToDisk();
   },
 
   getJobContext(): CompanyJobContext {
@@ -112,6 +185,7 @@ export const storageService = {
 
   saveJobContext(context: CompanyJobContext): void {
     localStorage.setItem(STORAGE_KEYS.JOB_CONTEXT, JSON.stringify(context));
+    this.syncToDisk();
   },
 
   getHistory(): CueCard[] {
@@ -123,7 +197,7 @@ export const storageService = {
   },
 
   saveHistory(history: CueCard[]): void {
-    // Keep last 50 cards
     localStorage.setItem(STORAGE_KEYS.HISTORY, JSON.stringify(history.slice(-50)));
+    this.syncToDisk();
   },
 };

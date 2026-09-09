@@ -1,6 +1,17 @@
 import React, { useState } from 'react';
 import { CueCard } from '../../types';
-import { Copy, Check, ExternalLink, Award, Code, Lightbulb, Sparkles } from 'lucide-react';
+import {
+  Copy,
+  Check,
+  ExternalLink,
+  Award,
+  Code,
+  Lightbulb,
+  Sparkles,
+  Layers,
+  HelpCircle,
+  AlertTriangle,
+} from 'lucide-react';
 
 interface CueCardViewProps {
   card: CueCard;
@@ -16,6 +27,7 @@ export const CueCardView: React.FC<CueCardViewProps> = ({ card, compact = false 
       `Anchor: ${card.headline}`,
       ...card.bulletPoints.map((b) => `• ${b}`),
       card.codeSnippet ? `\nCode:\n${card.codeSnippet.code}` : '',
+      card.questionsToAskBack ? `\nQuestions to ask back:\n${card.questionsToAskBack.join('\n')}` : '',
     ]
       .filter(Boolean)
       .join('\n');
@@ -43,11 +55,11 @@ export const CueCardView: React.FC<CueCardViewProps> = ({ card, compact = false 
 
   return (
     <div className="space-y-3 font-sans animate-fade-in text-slate-100">
-      {/* Anchor Headline Box */}
+      {/* Anchor Headline Box (Say First) */}
       <div className="p-3 rounded-xl bg-sky-950/40 border border-sky-500/30 shadow-inner flex items-start justify-between gap-2">
         <div className="space-y-1">
           <span className="text-[10px] font-bold text-sky-400 uppercase tracking-wider flex items-center gap-1">
-            <Sparkles className="w-3 h-3" /> Anchor Talking Point (Say First)
+            <Sparkles className="w-3 h-3" /> Anchor Hook (Start speaking this immediately)
           </span>
           <p className="text-sm font-semibold text-slate-100 leading-snug">
             {card.headline}
@@ -65,7 +77,7 @@ export const CueCardView: React.FC<CueCardViewProps> = ({ card, compact = false 
       {/* Bullet Points Teleprompter */}
       <div className="space-y-2">
         <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-          Key Talking Points (Glance & Speak)
+          Key Talking Points (Glance & Expand Naturally)
         </span>
         <div className="space-y-1.5">
           {card.bulletPoints.map((bullet, idx) => (
@@ -82,12 +94,12 @@ export const CueCardView: React.FC<CueCardViewProps> = ({ card, compact = false 
         </div>
       </div>
 
-      {/* Code Snippet Box (If Technical) */}
+      {/* Code Snippet Box (If Technical Coding) */}
       {card.codeSnippet && card.codeSnippet.code && (
         <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl space-y-2">
           <div className="flex items-center justify-between text-xs">
             <span className="text-[11px] font-mono font-bold text-sky-400 flex items-center gap-1.5">
-              <Code className="w-3.5 h-3.5" /> {card.codeSnippet.language || 'Code'}
+              <Code className="w-3.5 h-3.5" /> {card.codeSnippet.language || 'Optimal Solution'}
             </span>
             {card.codeSnippet.complexity && (
               <div className="flex gap-2 text-[11px] text-slate-400 font-mono">
@@ -99,6 +111,34 @@ export const CueCardView: React.FC<CueCardViewProps> = ({ card, compact = false 
           <pre className="p-2.5 rounded-lg bg-slate-900 overflow-x-auto text-[11px] text-emerald-300 font-mono leading-tight max-h-48">
             <code>{card.codeSnippet.code}</code>
           </pre>
+          {card.codeSnippet.edgeCases && card.codeSnippet.edgeCases.length > 0 && (
+            <div className="text-[11px] text-slate-400 pt-1 flex items-center gap-1.5">
+              <AlertTriangle className="w-3 h-3 text-amber-400 shrink-0" />
+              <span>Edge cases to mention: {card.codeSnippet.edgeCases.join(' • ')}</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* System Design Architecture Breakdown */}
+      {card.systemDesignDetails && card.systemDesignDetails.architectureComponents && (
+        <div className="p-3 bg-slate-950/80 border border-slate-800 rounded-xl space-y-2 text-xs">
+          <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1.5">
+            <Layers className="w-3.5 h-3.5" /> Architecture Components & Tradeoffs
+          </span>
+          <div className="flex flex-wrap gap-1.5">
+            {card.systemDesignDetails.architectureComponents.map((c, i) => (
+              <span key={i} className="px-2 py-0.5 bg-slate-800 text-sky-300 rounded font-mono text-[11px]">
+                {c}
+              </span>
+            ))}
+          </div>
+          {card.systemDesignDetails.bottlenecksAndTradeoffs && (
+            <div className="text-[11px] text-slate-400 pt-1">
+              <strong className="text-amber-300">Tradeoffs to highlight:</strong>{' '}
+              {card.systemDesignDetails.bottlenecksAndTradeoffs.join('; ')}
+            </div>
+          )}
         </div>
       )}
 
@@ -110,9 +150,26 @@ export const CueCardView: React.FC<CueCardViewProps> = ({ card, compact = false 
           </div>
           {card.starMapping.resultHighlight && (
             <p className="text-indigo-200 text-[11px]">
-              <strong className="text-emerald-400">Metric:</strong> {card.starMapping.resultHighlight}
+              <strong className="text-emerald-400">Key Metric:</strong> {card.starMapping.resultHighlight}
             </p>
           )}
+        </div>
+      )}
+
+      {/* Questions Candidate Can Ask the Interviewer Back */}
+      {card.questionsToAskBack && card.questionsToAskBack.length > 0 && !compact && (
+        <div className="p-2.5 bg-emerald-950/20 border border-emerald-500/20 rounded-xl text-xs space-y-1">
+          <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1">
+            <HelpCircle className="w-3 h-3" /> Smart Questions to Ask the Interviewer
+          </span>
+          <ul className="space-y-0.5 text-slate-300 text-[11px]">
+            {card.questionsToAskBack.map((q, i) => (
+              <li key={i} className="flex items-start gap-1.5">
+                <span className="text-emerald-400">›</span>
+                <span>{q}</span>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
@@ -120,7 +177,7 @@ export const CueCardView: React.FC<CueCardViewProps> = ({ card, compact = false 
       {card.groundingSources && card.groundingSources.length > 0 && (
         <div className="pt-1 flex flex-wrap items-center gap-2 text-[10px] text-slate-400">
           <span className="font-semibold text-sky-400 flex items-center gap-1">
-            <ExternalLink className="w-3 h-3" /> Live Grounded Sources:
+            <ExternalLink className="w-3 h-3" /> Live Grounded Web Sources:
           </span>
           {card.groundingSources.slice(0, 3).map((source, i) => (
             <a
@@ -140,7 +197,7 @@ export const CueCardView: React.FC<CueCardViewProps> = ({ card, compact = false 
       {card.followUpTips && card.followUpTips.length > 0 && !compact && (
         <div className="p-2.5 bg-amber-950/20 border border-amber-500/20 rounded-xl text-xs space-y-1">
           <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1">
-            <Lightbulb className="w-3 h-3" /> Anticipate Follow-Up / Questions to Ask Back
+            <Lightbulb className="w-3 h-3" /> Likely Follow-Up Questions
           </span>
           <ul className="space-y-0.5 text-slate-300 text-[11px]">
             {card.followUpTips.map((tip, i) => (

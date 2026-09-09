@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain, globalShortcut, desktopCapturer, shell, screen } from 'electron';
 import path from 'path';
+import fs from 'fs';
 import { GoogleGenAI } from '@google/genai';
 
 let mainWindow: BrowserWindow | null = null;
@@ -7,13 +8,18 @@ let currentMode: 'hub' | 'hud' = 'hub';
 
 const isDev = process.env.NODE_ENV !== 'production' && !app.isPackaged;
 
+function getDbPath(): string {
+  const userDir = app.getPath('userData');
+  return path.join(userDir, 'interview-copilot-db.json');
+}
+
 function createMainWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
   const { width, height } = primaryDisplay.workAreaSize;
 
   mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    width: 1240,
+    height: 820,
     minWidth: 450,
     minHeight: 250,
     frame: true,
@@ -52,7 +58,7 @@ function switchToHudMode() {
 
   // Position at top-center under the webcam for optimal eye contact
   const hudWidth = 720;
-  const hudHeight = 440;
+  const hudHeight = 450;
   const hudX = Math.round((width - hudWidth) / 2);
   const hudY = 24; // Directly below camera
 
@@ -130,6 +136,40 @@ function setupGlobalShortcuts() {
     mainWindow?.webContents.send('shortcut-trigger', 'clear-transcript');
   });
 }
+
+// Persistent Storage Handlers (Files stay until user deletes them)
+ipcMain.handle('load-persistent-data', async () => {
+  try {
+    const dbFile = getDbPath();
+    if (fs.existsSync(dbFile)) {
+      const raw = fs.readFileSync(dbFile, 'utf-8');
+      return JSON.parse(raw);
+    }
+    return null;
+  } catch (err) {
+    console.error('Failed to load persistent data from disk:', err);
+    return null;
+  }
+});
+
+ipcMain.handle('save-persistent-data', async (_event, data: any) => {
+  try {
+    const dbFile = getDbPath();
+    const dir = path.dirname(dbFile);
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    fs.writeFileSync(dbFile, JSON.stringify(data, null, 2), 'utf-8');
+    return true;
+  } catch (err) {
+    console.error('Failed to save persistent data to disk:', err);
+    return false;
+  }
+});
+
+ipcMain.handle('get-data-path', async () => {
+  return getDbPath();
+});
 
 // IPC Handlers
 ipcMain.handle('set-content-protection', async (_event, enable: boolean) => {

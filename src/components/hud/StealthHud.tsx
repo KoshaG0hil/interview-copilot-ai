@@ -7,6 +7,7 @@ import {
   CueCard,
   AppSettings,
   TranscriptItem,
+  KnowledgeDocument,
 } from '../../types';
 import { geminiService } from '../../services/gemini';
 import { speechService } from '../../services/speechRecognition';
@@ -20,8 +21,6 @@ import {
   Loader2,
   X,
   Minus,
-  Move,
-  History,
   Mic,
 } from 'lucide-react';
 
@@ -30,6 +29,7 @@ interface StealthHudProps {
   stories: StarStory[];
   jobContext: CompanyJobContext;
   settings: AppSettings;
+  documents?: KnowledgeDocument[];
   onUpdateSettings: (settings: AppSettings) => void;
   onSwitchToHub: () => void;
 }
@@ -39,6 +39,7 @@ export const StealthHud: React.FC<StealthHudProps> = ({
   stories,
   jobContext,
   settings,
+  documents = [],
   onUpdateSettings,
   onSwitchToHub,
 }) => {
@@ -131,6 +132,7 @@ export const StealthHud: React.FC<StealthHudProps> = ({
         stories,
         jobContext,
         settings,
+        documents,
         screenImageBase64,
       });
 

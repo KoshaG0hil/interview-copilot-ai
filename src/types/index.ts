@@ -8,6 +8,15 @@ export interface CandidateProfile {
   lastUpdated: string;
 }
 
+export interface KnowledgeDocument {
+  id: string;
+  name: string;
+  type: 'resume' | 'project-notes' | 'cheat-sheet' | 'company-research' | 'custom';
+  content: string;
+  sizeBytes?: number;
+  dateAdded: string;
+}
+
 export interface StarStory {
   id: string;
   title: string;
@@ -40,7 +49,7 @@ export interface CueCard {
   timestamp: number;
   question: string;
   mode: ResponseMode;
-  headline: string; // One sentence quick anchor
+  headline: string; // One sentence punchy anchor to say immediately
   bulletPoints: string[]; // 3-4 bullet points to speak naturally
   starMapping?: {
     storyId?: string;
@@ -53,12 +62,20 @@ export interface CueCard {
     language: string;
     code: string;
     complexity?: { time: string; space: string };
+    edgeCases?: string[];
+    explanation?: string;
+  };
+  systemDesignDetails?: {
+    architectureComponents?: string[];
+    bottlenecksAndTradeoffs?: string[];
+    dataStores?: string[];
   };
   groundingSources?: {
     title: string;
     url: string;
   }[];
   followUpTips?: string[];
+  questionsToAskBack?: string[];
 }
 
 export interface TranscriptItem {
@@ -79,4 +96,14 @@ export interface AppSettings {
   teleprompterSpeed: 'normal' | 'fast';
   autoAnswerOnQuestionDetected: boolean;
   hotkeyTrigger: string;
+  hasSeenGuide?: boolean;
+}
+
+export interface PersistentDataStore {
+  profile: CandidateProfile;
+  documents: KnowledgeDocument[];
+  stories: StarStory[];
+  jobContext: CompanyJobContext;
+  settings: AppSettings;
+  history: CueCard[];
 }

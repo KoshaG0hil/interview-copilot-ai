@@ -1,4 +1,12 @@
-import { CandidateProfile, StarStory, CompanyJobContext, ResponseMode, CueCard, AppSettings } from '../types';
+import {
+  CandidateProfile,
+  StarStory,
+  CompanyJobContext,
+  ResponseMode,
+  CueCard,
+  AppSettings,
+  KnowledgeDocument,
+} from '../types';
 
 declare global {
   interface Window {
@@ -13,6 +21,7 @@ interface GenerateCueCardParams {
   stories: StarStory[];
   jobContext: CompanyJobContext;
   settings: AppSettings;
+  documents?: KnowledgeDocument[];
   screenImageBase64?: string;
 }
 
@@ -38,7 +47,7 @@ export const geminiService = {
     enableSearchGrounding?: boolean;
     imageBase64?: string;
   }): Promise<{ success: boolean; text: string; groundingSources?: { title: string; url: string }[]; error?: string }> {
-    // If running inside Electron, use the IPC bridge for zero-cors & native execution
+    // If running inside Electron, use the IPC bridge for native execution & zero CORS
     if (window.electronAPI?.generateGeminiContent) {
       const response = await window.electronAPI.generateGeminiContent(payload);
       return {
@@ -49,7 +58,7 @@ export const geminiService = {
       };
     }
 
-    // Direct Browser Fallback using fetch to Gemini API
+    // Direct Browser Fallback
     const key = payload.apiKey || (import.meta as any).env?.VITE_GEMINI_API_KEY;
     if (!key) {
       return {
@@ -125,7 +134,7 @@ export const geminiService = {
   },
 
   async generateCueCard(params: GenerateCueCardParams): Promise<CueCard> {
-    const { question, mode, profile, stories, jobContext, settings, screenImageBase64 } = params;
+    const { question, mode, profile, stories, jobContext, settings, documents = [], screenImageBase64 } = params;
 
     const storiesContext = stories
       .map(
@@ -134,65 +143,82 @@ export const geminiService = {
       )
       .join('\n\n');
 
-    const systemInstruction = `You are a world-class real-time executive interview copilot (similar to Verve AI and Parakeet AI).
-The candidate is currently in a LIVE high-stakes interview.
-Your goal is to give them INSTANT, effortless-to-deliver guidance.
+    const documentsContext = documents
+      .map((d) => `[DOCUMENT: ${d.name} (${d.type})]\n${d.content.slice(0, 1500)}`)
+      .join('\n\n');
 
-CRITICAL INSTRUCTIONS FOR LIVE TELEPROMPTER DELIVERY:
-1. NEVER output long narrative essays or robotic script blocks that must be read verbatim.
-2. Structure the answer into high-impact, bite-sized BULLET POINTS that the candidate can glance at for 1 second and speak naturally.
-3. Mark key impact phrases or technical terms with asterisks or bold so they pop out.
-4. Always ground the response in the candidate's real profile, past achievements, and their story bank.
-5. If target company or job info is provided, weave in company alignment seamlessly.
-6. If the interviewer asks an unknown or cutting-edge question, use Google Search grounding to give accurate, up-to-date facts.`;
+    const systemInstruction = `You are an elite, world-class executive interview copilot for high-stakes tech interviews (FAANG, Fortune 500, Tier-1 Startups).
+The candidate is sitting in a LIVE interview right now.
+Your task is to generate instantaneous, concise, natural-to-speak cue cards.
 
-    let prompt = `LIVE INTERVIEW QUESTION:
-"${question || 'Analyze the captured screen and provide the best solution/answer.'}"
+CORE PRINCIPLES OF PAID COPILOT EXCELLENCE:
+1. NEVER output a wall of robotic text that the candidate has to read aloud word-for-word.
+2. Provide a 1-sentence "Anchor Hook" the candidate can begin saying IMMEDIATELY while glancing at the rest.
+3. Provide 3-4 bullet points formatted with bold asterisks for key metrics and technical mechanisms (e.g. *decoupled via Kafka*, *reduced p99 by 68%*, *distributed lock with Redis*).
+4. Strictly ground answers in the candidate's actual resume, STAR stories, and added knowledge documents.
+5. If technical coding: provide the optimal clean solution, Big-O complexity, edge cases, and an explanation bullet.
+6. If system design: specify components, data flows, scalability bottlenecks, and tradeoffs.
+7. Include 1-2 intelligent questions the candidate can ask back to impress the interviewer.`;
 
-CANDIDATE INFORMATION:
+    let prompt = `LIVE INTERVIEW QUESTION / SCENARIO:
+"${question || 'Analyze the captured problem on screen and provide the optimal solution and explanation.'}"
+
+RESPONSE MODE: ${mode.toUpperCase()}
+
+CANDIDATE PROFILE:
 - Name: ${profile.fullName || 'Candidate'}
-- Target Role: ${profile.targetRole || jobContext.jobTitle || 'Software Engineer'}
+- Target Role: ${jobContext.jobTitle || profile.targetRole || 'Senior Engineer'}
 - Years Exp: ${profile.yearsOfExperience}
 - Core Skills: ${profile.coreSkills.join(', ')}
-- Resume Highlights: ${profile.summary || 'Strong background in engineering, problem solving, and architecture.'}
+- Executive Bio: ${profile.summary || 'Accomplished engineering background.'}
 
-TARGET COMPANY & JOB:
+TARGET COMPANY & JOB DESCRIPTION:
 - Company: ${jobContext.companyName || 'Target Company'}
-- Job Title: ${jobContext.jobTitle || 'Target Role'}
+- Role: ${jobContext.jobTitle || 'Target Role'}
 - Key Required Skills: ${jobContext.requiredSkills.join(', ')}
-- Stage: ${jobContext.interviewStage || 'Technical/Behavioral'}
+- Interview Stage: ${jobContext.interviewStage || 'Technical/Behavioral'}
+- Company Values: ${jobContext.companyValues?.join(', ') || 'N/A'}
+- Recent News: ${jobContext.recentCompanyNews?.join('; ') || 'N/A'}
 
-CANDIDATE STAR STORY BANK:
-${storiesContext || 'Use candidate skills and experience.'}
+CANDIDATE'S STAR STORY BANK:
+${storiesContext || 'Use candidate experience.'}
 
-REQUESTED RESPONSE MODE: ${mode.toUpperCase()}
+ADDITIONAL KNOWLEDGE BASE DOCUMENTS:
+${documentsContext || 'None attached.'}
 
-Please return your response formatted strictly as a JSON object with this structure:
+Return JSON with this EXACT structure:
 {
-  "headline": "A single punchy 10-15 word opening line the candidate can say immediately while glancing at the rest",
+  "headline": "A punchy, natural 1-sentence opening statement the candidate can say immediately.",
   "bulletPoints": [
-    "Short bullet 1 (Situation/Concept anchor with *key terms*)",
-    "Short bullet 2 (Specific Action or Technical Mechanism with *metrics*)",
-    "Short bullet 3 (Outcome, Result, or Architecture Tradeoff)",
-    "Short bullet 4 (Tie-back to the target role or company)"
+    "Glance point 1: Problem context or core concept with *bold key terms*",
+    "Glance point 2: Exact action, architecture mechanism, or algorithm with *metrics*",
+    "Glance point 3: Business/technical result or tradeoff analysis",
+    "Glance point 4: Strategic tie-back to the target role or company"
   ],
   "starMapping": {
-    "storyTitle": "Name of best matching candidate story, if applicable",
-    "situationHighlight": "1-sentence situation reminder",
-    "actionHighlight": "1-sentence key action reminder",
-    "resultHighlight": "1-sentence metrics/result reminder"
+    "storyTitle": "Name of best matching candidate story (if behavioral)",
+    "situationHighlight": "1 sentence situation anchor",
+    "actionHighlight": "1 sentence key action anchor",
+    "resultHighlight": "1 sentence metrics and business result"
   },
   "codeSnippet": {
-    "language": "python or javascript or sql etc (if applicable, else empty)",
-    "code": "Clean, optimized code solution (if coding question, else empty)",
-    "complexity": { "time": "O(N)", "space": "O(1)" }
+    "language": "python or javascript or sql (if coding question, else leave empty)",
+    "code": "Optimized code implementation (if coding, else leave empty)",
+    "complexity": { "time": "O(N)", "space": "O(1)" },
+    "edgeCases": ["Edge case 1 (e.g. empty input)", "Edge case 2 (e.g. integer overflow)"]
+  },
+  "systemDesignDetails": {
+    "architectureComponents": ["Load Balancer", "Service A", "Redis Cache", "PostgreSQL"],
+    "bottlenecksAndTradeoffs": ["CAP theorem tradeoff", "Cache stampede prevention"]
   },
   "followUpTips": [
-    "Potential curveball follow-up 1 and how to handle it",
-    "Smart question the candidate can ask back to the interviewer"
+    "Probable follow-up question the interviewer will probe on next"
+  ],
+  "questionsToAskBack": [
+    "High-level strategic question the candidate can ask the interviewer back"
   ]
 }
-IMPORTANT: Only output the raw JSON string without markdown code fences (\`\`\`json).`;
+IMPORTANT: Only output the raw JSON string. Do not enclose in markdown code fences (\`\`\`json).`;
 
     const res = await this.callGemini({
       apiKey: settings.geminiApiKey,
@@ -204,7 +230,6 @@ IMPORTANT: Only output the raw JSON string without markdown code fences (\`\`\`j
     });
 
     let rawText = res.text.trim();
-    // Clean markdown fences if model returned them
     if (rawText.startsWith('```json')) {
       rawText = rawText.replace(/^```json\n?/, '').replace(/\n?```$/, '');
     } else if (rawText.startsWith('```')) {
@@ -216,26 +241,28 @@ IMPORTANT: Only output the raw JSON string without markdown code fences (\`\`\`j
       return {
         id: 'card-' + Date.now(),
         timestamp: Date.now(),
-        question: question || 'Screen Capture Analysis',
+        question: question || 'Screen Analysis / Live Query',
         mode,
-        headline: parsed.headline || 'Here is the key approach to communicate:',
+        headline: parsed.headline || 'Recommended opening talking point:',
         bulletPoints: parsed.bulletPoints || [parsed.headline],
         starMapping: parsed.starMapping,
         codeSnippet: parsed.codeSnippet?.code ? parsed.codeSnippet : undefined,
+        systemDesignDetails: parsed.systemDesignDetails,
         groundingSources: res.groundingSources,
         followUpTips: parsed.followUpTips || [],
+        questionsToAskBack: parsed.questionsToAskBack || [],
       };
     } catch {
-      // Fallback if model didn't output strict JSON
       return {
         id: 'card-' + Date.now(),
         timestamp: Date.now(),
         question: question || 'Live Query',
         mode,
-        headline: 'Recommended Response Framework:',
+        headline: 'Core Talking Points:',
         bulletPoints: rawText
           .split('\n')
-          .filter((line) => line.trim().length > 0)
+          .map((l) => l.trim())
+          .filter((line) => line.length > 0)
           .slice(0, 5),
         groundingSources: res.groundingSources,
       };
@@ -249,11 +276,11 @@ IMPORTANT: Only output the raw JSON string without markdown code fences (\`\`\`j
     techStack: string[];
     interviewVibe: string;
   }> {
-    const prompt = `Research the company "${companyName}" for an upcoming job interview.
+    const prompt = `Perform comprehensive research on "${companyName}" for an upcoming candidate interview.
 Search for:
-1. Core business mission and what sets them apart
+1. Core business and mission
 2. Stated company values and culture
-3. Recent major news, funding, product launches, or challenges in the last 12-24 months
+3. Recent news, product announcements, funding, or press from the last 12-24 months
 4. Known engineering tech stack and tools
 5. Typical interview style and what they look for in candidates
 
@@ -263,7 +290,7 @@ Return JSON:
   "values": ["Value 1", "Value 2", "Value 3"],
   "recentNews": ["News item 1 with context", "News item 2 with context"],
   "techStack": ["Tech 1", "Tech 2", "Tech 3"],
-  "interviewVibe": "Advice on tone and focus during their interviews"
+  "interviewVibe": "Specific tactical advice on tone, culture, and focus during interviews"
 }`;
 
     const res = await this.callGemini({
@@ -282,10 +309,10 @@ Return JSON:
     } catch {
       return {
         summary: `Research for ${companyName}`,
-        values: ['Innovation', 'Customer Focus', 'Speed'],
-        recentNews: ['Continuously expanding core product line and market presence.'],
-        techStack: ['Cloud', 'Modern Microservices', 'APIs'],
-        interviewVibe: 'Focus on demonstrated problem solving and ownership.',
+        values: ['Customer Obsession', 'High Ownership', 'Bias for Action'],
+        recentNews: ['Continuously scaling engineering products and infrastructure.'],
+        techStack: ['Cloud Native', 'Microservices', 'Distributed Systems'],
+        interviewVibe: 'Focus on demonstrated problem solving, depth, and leadership.',
       };
     }
   },
@@ -293,15 +320,15 @@ Return JSON:
   async parseResumeText(rawResume: string, apiKey: string): Promise<Partial<CandidateProfile>> {
     const prompt = `Extract structured profile information from this resume:
 """
-${rawResume.slice(0, 10000)}
+${rawResume.slice(0, 12000)}
 """
 
 Return JSON:
 {
   "fullName": "Extracted candidate name",
-  "targetRole": "Best suited role title",
+  "targetRole": "Best suited role title based on experience",
   "yearsOfExperience": 5,
-  "summary": "3-sentence professional bio highlighting highest accomplishments and engineering domains",
+  "summary": "3-sentence high-impact professional bio highlighting accomplishments and engineering domains",
   "coreSkills": ["Skill1", "Skill2", "Skill3", "Skill4", "Skill5", "Skill6", "Skill7", "Skill8"]
 }`;
 
@@ -320,22 +347,20 @@ Return JSON:
     } catch {
       return {
         fullName: 'Candidate',
-        summary: rawResume.slice(0, 200),
+        summary: rawResume.slice(0, 250),
         coreSkills: [],
       };
     }
   },
 
   async generateStarStoriesFromResume(rawResume: string, apiKey: string): Promise<StarStory[]> {
-    const prompt = `Given this resume, automatically extract 3-4 compelling STAR (Situation, Task, Action, Result) behavioral stories.
+    const prompt = `Extract 3-4 compelling STAR (Situation, Task, Action, Result) stories from this resume for behavioral interviews.
 Resume:
 """
-${rawResume.slice(0, 10000)}
+${rawResume.slice(0, 12000)}
 """
 
-Categories to aim for: 'technical-challenge', 'leadership', 'impact-metric', 'failure-learning'.
-
-Return JSON array of stories:
+Return JSON array:
 [
   {
     "id": "story-auto-1",

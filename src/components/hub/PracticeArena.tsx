@@ -1,14 +1,23 @@
 import React, { useState } from 'react';
-import { CandidateProfile, StarStory, CompanyJobContext, ResponseMode, CueCard, AppSettings } from '../../types';
+import {
+  CandidateProfile,
+  StarStory,
+  CompanyJobContext,
+  ResponseMode,
+  CueCard,
+  AppSettings,
+  KnowledgeDocument,
+} from '../../types';
 import { geminiService } from '../../services/gemini';
 import { CueCardView } from '../hud/CueCardView';
-import { PlayCircle, Sparkles, Send, RefreshCw, Layers, Code, MessageSquare, Zap, Loader2 } from 'lucide-react';
+import { PlayCircle, Sparkles, Code, MessageSquare, Layers, Zap, Loader2 } from 'lucide-react';
 
 interface PracticeArenaProps {
   profile: CandidateProfile;
   stories: StarStory[];
   jobContext: CompanyJobContext;
   settings: AppSettings;
+  documents?: KnowledgeDocument[];
 }
 
 const SAMPLE_QUESTIONS: { mode: ResponseMode; question: string }[] = [
@@ -39,6 +48,7 @@ export const PracticeArena: React.FC<PracticeArenaProps> = ({
   stories,
   jobContext,
   settings,
+  documents = [],
 }) => {
   const [activeMode, setActiveMode] = useState<ResponseMode>('behavioral');
   const [currentQuestion, setCurrentQuestion] = useState(SAMPLE_QUESTIONS[0].question);
@@ -61,6 +71,7 @@ export const PracticeArena: React.FC<PracticeArenaProps> = ({
         stories,
         jobContext,
         settings,
+        documents,
       });
       setCueCard(card);
     } catch (err: any) {
