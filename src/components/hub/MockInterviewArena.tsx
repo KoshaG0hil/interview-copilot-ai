@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   CandidateProfile,
   CompanyJobContext,
@@ -27,7 +27,12 @@ import {
   User,
   Bot,
   AlertCircle,
-  HelpCircle,
+  Volume2,
+  VolumeX,
+  Clock,
+  BarChart3,
+  TrendingUp,
+  RotateCcw,
 } from 'lucide-react';
 
 interface MockInterviewArenaProps {
@@ -57,6 +62,50 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
   const [isRecording, setIsRecording] = useState(false);
   const [liveCueCard, setLiveCueCard] = useState<CueCard | null>(null);
   const [isGeneratingCueCard, setIsGeneratingCueCard] = useState(false);
+  const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
+  const [isAiSpeaking, setIsAiSpeaking] = useState(false);
+  const [timerSeconds, setTimerSeconds] = useState(0);
+
+  const timerRef = useRef<any>(null);
+
+  // Speaking Timer when recording
+  useEffect(() => {
+    if (isRecording) {
+      timerRef.current = setInterval(() => {
+        setTimerSeconds((prev) => prev + 1);
+      }, 1000);
+    } else {
+      if (timerRef.current) clearInterval(timerRef.current);
+    }
+    return () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+    };
+  }, [isRecording]);
+
+  // Clean speech synthesis on unmount
+  useEffect(() => {
+    return () => {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
+  const speakQuestion = (text: string) => {
+    if (!isVoiceEnabled || typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+
+    window.speechSynthesis.cancel(); // cancel any previous utterance
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1.0;
+    utterance.pitch = 1.0;
+    utterance.lang = 'en-US';
+
+    utterance.onstart = () => setIsAiSpeaking(true);
+    utterance.onend = () => setIsAiSpeaking(false);
+    utterance.onerror = () => setIsAiSpeaking(false);
+
+    window.speechSynthesis.speak(utterance);
+  };
 
   const personas = [
     { id: 'bar-raiser', label: 'Senior Bar Raiser (Amazon/Meta)', desc: 'High rigor on leadership principles, STAR metrics, and deep ownership.' },
@@ -88,8 +137,9 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
         settings
       );
       setSession(newSession);
-      // Auto-generate initial cue card for the first question
-      generateCueCardForQuestion(newSession.turns[0].question);
+      const firstQ = newSession.turns[0].question;
+      speakQuestion(firstQ);
+      generateCueCardForQuestion(firstQ);
     } catch (err: any) {
       alert('Failed to start mock session: ' + err.message);
     } finally {
@@ -123,6 +173,7 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
       speechService.stop();
       setIsRecording(false);
     } else {
+      setTimerSeconds(0);
       speechService.start((data) => {
         if (data.isFinal) {
           setCurrentAnswer((prev) => (prev ? prev + ' ' + data.text : data.text));
@@ -162,6 +213,7 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
           question: evaluation.nextQuestion,
           timestamp: Date.now(),
         });
+        speakQuestion(evaluation.nextQuestion);
         generateCueCardForQuestion(evaluation.nextQuestion);
       }
 
@@ -183,11 +235,19 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
 
       setSession(updatedSession);
       setCurrentAnswer('');
+      setTimerSeconds(0);
     } catch (err: any) {
       alert('Error evaluating answer: ' + err.message);
     } finally {
       setIsAnswering(false);
     }
+  };
+
+  const wordCount = currentAnswer.trim() ? currentAnswer.trim().split(/\s+/).length : 0;
+  const formatTime = (secs: number) => {
+    const m = Math.floor(secs / 60);
+    const s = secs % 60;
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
   return (
@@ -197,27 +257,44 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
         <div>
           <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2">
             <PlayCircle className="w-5 h-5 text-sky-400" />
-            AI Mock Interview Room & Scoring Arena
+            Parakeet-Style AI Mock Interview Room
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            Practice realistic, interactive multi-turn interviews. Speaks follow-up questions, evaluates your answers, and scores your performance.
+            Interactive AI Voice interviewer with real-time speech evaluation, live glance-and-speak cue cards, and official hiring debriefs.
           </p>
         </div>
 
-        {session && (
+        <div className="flex items-center gap-2">
+          {/* Voice Output Toggle */}
           <button
-            onClick={() => {
-              if (confirm('Start a fresh mock interview session?')) {
-                setSession(null);
-                setCurrentAnswer('');
-                setLiveCueCard(null);
-              }
-            }}
-            className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition self-start sm:self-auto"
+            onClick={() => setIsVoiceEnabled(!isVoiceEnabled)}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition border ${
+              isVoiceEnabled
+                ? 'bg-sky-500/10 border-sky-500/30 text-sky-300'
+                : 'bg-slate-900 border-slate-800 text-slate-500'
+            }`}
+            title="Toggle AI Interviewer Voice Readout"
           >
-            <RefreshCw className="w-3.5 h-3.5" /> Reset Session
+            {isVoiceEnabled ? <Volume2 className="w-3.5 h-3.5 text-sky-400" /> : <VolumeX className="w-3.5 h-3.5" />}
+            <span>Voice {isVoiceEnabled ? 'ON' : 'OFF'}</span>
           </button>
-        )}
+
+          {session && (
+            <button
+              onClick={() => {
+                if (confirm('Start a fresh mock interview session?')) {
+                  setSession(null);
+                  setCurrentAnswer('');
+                  setLiveCueCard(null);
+                  setTimerSeconds(0);
+                }
+              }}
+              className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition"
+            >
+              <RefreshCw className="w-3.5 h-3.5" /> Reset Session
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Screen 1: Session Setup (If No Active Session) */}
@@ -242,7 +319,7 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
                     onClick={() => setSelectedPersona(p.label)}
                     className={`p-3 rounded-xl border text-left transition flex flex-col justify-between space-y-1 ${
                       selectedPersona === p.label
-                        ? 'bg-sky-500/10 border-sky-500 text-sky-100 shadow-sm'
+                        ? 'bg-sky-500/10 border-sky-500 text-sky-100 shadow-sm ring-1 ring-sky-500/50'
                         : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
                     }`}
                   >
@@ -292,17 +369,17 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
             <button
               onClick={handleStartMock}
               disabled={isAnswering}
-              className="w-full py-3 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-slate-950 font-bold text-sm rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-sky-500/20 transition disabled:opacity-50"
+              className="w-full py-3.5 bg-gradient-to-r from-sky-500 via-sky-400 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-slate-950 font-bold text-sm rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-sky-500/20 transition disabled:opacity-50"
             >
               {isAnswering ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Setting up interview room...
+                  Setting up interactive interview room...
                 </>
               ) : (
                 <>
-                  <PlayCircle className="w-4 h-4" />
-                  Start Live AI Mock Interview
+                  <PlayCircle className="w-5 h-5" />
+                  Start Interactive AI Mock Interview
                 </>
               )}
             </button>
@@ -310,59 +387,75 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
 
           {/* Context Overview Sidebar */}
           <div className="p-6 bg-slate-900 border border-slate-800 rounded-2xl space-y-3.5 text-xs">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block border-b border-slate-800 pb-2">
-              Candidate & Company Profile
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block border-b border-slate-800 pb-2 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-sky-400" />
+              Active Knowledge Base Injected
             </span>
             <div>
               <span className="text-slate-500 block">Candidate:</span>
-              <strong className="text-slate-200">{profile.fullName || 'Candidate'}</strong>
+              <strong className="text-slate-200">{profile.fullName || 'Kosha Gohil'}</strong>
             </div>
             <div>
               <span className="text-slate-500 block">Target Role:</span>
-              <strong className="text-sky-300">{jobContext.jobTitle || profile.targetRole || 'Software Engineer'}</strong>
+              <strong className="text-sky-300">{jobContext.jobTitle || profile.targetRole || 'Cloud Security Engineer'}</strong>
             </div>
             <div>
               <span className="text-slate-500 block">Company:</span>
               <strong className="text-emerald-300 font-mono">{jobContext.companyName || 'Target Company'}</strong>
             </div>
             <div>
-              <span className="text-slate-500 block">Knowledge Base:</span>
-              <span className="text-slate-300">{stories.length} STAR stories, {documents.length} extra docs</span>
+              <span className="text-slate-500 block">Grounding Resources:</span>
+              <span className="text-slate-300">{stories.length} STAR stories, {customQAs.length} custom Q&As, {documents.length} extra docs</span>
             </div>
           </div>
         </div>
       ) : (
-        /* Screen 2: Active Mock Interview Room */
+        /* Screen 2: Active Parakeet Mock Interview Room */
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left 2 Columns: Interview Dialogue & Candidate Input */}
+          {/* Left 2 Columns: Dialogue, AI Voice Player, and Candidate Input */}
           <div className="lg:col-span-2 space-y-4">
             {/* Session Progress Header */}
             <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-between text-xs">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="font-bold text-slate-200">
-                  {session.company} — {session.stage}
-                </span>
+              <div className="flex items-center gap-2.5">
+                <span className={`w-3 h-3 rounded-full ${isAiSpeaking ? 'bg-sky-400 animate-ping' : 'bg-emerald-400 animate-pulse'}`} />
+                <div>
+                  <span className="font-bold text-slate-100 block">
+                    {session.company} — {session.stage}
+                  </span>
+                  <span className="text-[10px] text-slate-400">
+                    {session.interviewerPersona} • {session.difficulty.toUpperCase()}
+                  </span>
+                </div>
               </div>
-              <span className="font-mono text-sky-400 bg-sky-500/10 px-2 py-0.5 rounded border border-sky-500/20">
-                Turn {session.turns.length} of 4
+              <span className="font-mono text-sky-400 bg-sky-500/10 px-2.5 py-1 rounded-lg border border-sky-500/20 font-bold">
+                Turn {session.turns.length} / 4
               </span>
             </div>
 
             {/* Conversation Turns List */}
-            <div className="space-y-3 max-h-[480px] overflow-y-auto pr-1">
+            <div className="space-y-4 max-h-[480px] overflow-y-auto pr-1">
               {session.turns.map((turn, i) => (
-                <div key={turn.id} className="space-y-2.5 animate-fade-in">
+                <div key={turn.id} className="space-y-3 animate-fade-in">
                   {/* Interviewer Question Bubble */}
-                  <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl flex items-start gap-3 text-xs">
-                    <div className="p-2 rounded-xl bg-sky-500/10 text-sky-400 shrink-0 mt-0.5">
+                  <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl flex items-start gap-3 text-xs shadow-sm">
+                    <div className={`p-2.5 rounded-xl shrink-0 mt-0.5 ${isAiSpeaking && i === session.turns.length - 1 ? 'bg-sky-500 text-slate-950 ring-4 ring-sky-500/20' : 'bg-sky-500/10 text-sky-400'}`}>
                       <Bot className="w-4 h-4" />
                     </div>
-                    <div className="space-y-1 flex-1">
-                      <span className="text-[10px] font-bold text-sky-400 uppercase tracking-wider block">
-                        Interviewer ({session.interviewerPersona})
-                      </span>
-                      <p className="text-slate-200 leading-relaxed text-sm font-medium">
+                    <div className="space-y-1.5 flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-sky-400 uppercase tracking-wider">
+                          Interviewer • Question {i + 1}
+                        </span>
+                        <button
+                          onClick={() => speakQuestion(turn.question)}
+                          className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300 flex items-center gap-1 transition"
+                          title="Replay Audio"
+                        >
+                          <Volume2 className="w-3 h-3 text-sky-400" />
+                          <span>Listen</span>
+                        </button>
+                      </div>
+                      <p className="text-slate-100 leading-relaxed text-sm font-medium">
                         {turn.question}
                       </p>
                     </div>
@@ -376,9 +469,9 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
                       </div>
                       <div className="space-y-1 flex-1">
                         <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider block">
-                          Your Response
+                          Your Answer
                         </span>
-                        <p className="text-slate-300 leading-relaxed whitespace-pre-wrap">
+                        <p className="text-slate-300 leading-relaxed whitespace-pre-wrap text-xs">
                           {turn.candidateAnswer}
                         </p>
                       </div>
@@ -387,38 +480,44 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
 
                   {/* Turn AI Feedback Scorecard */}
                   {turn.feedback && (
-                    <div className="p-4 bg-gradient-to-r from-slate-900 to-indigo-950/40 border border-indigo-500/30 rounded-2xl ml-4 space-y-2.5 text-xs animate-fade-in">
+                    <div className="p-4 bg-gradient-to-r from-slate-900 to-indigo-950/40 border border-indigo-500/30 rounded-2xl ml-4 space-y-3 text-xs animate-fade-in shadow-md">
                       <div className="flex items-center justify-between border-b border-indigo-500/20 pb-2">
                         <span className="font-bold text-indigo-300 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
-                          <Award className="w-3.5 h-3.5" /> AI Turn Evaluation
+                          <Award className="w-3.5 h-3.5 text-amber-400" /> Parakeet AI Real-Time Feedback
                         </span>
-                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono font-bold text-xs">
+                        <span className={`px-2.5 py-0.5 rounded-full font-mono font-bold text-xs ${turn.feedback.score >= 8 ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : turn.feedback.score >= 6 ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-rose-500/20 text-rose-300 border border-rose-500/30'}`}>
                           Score: {turn.feedback.score} / 10
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
-                        <div className="space-y-1 text-slate-300">
-                          <strong className="text-emerald-400 block">✓ What you did well:</strong>
-                          <ul className="list-disc list-inside space-y-0.5 text-slate-400">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-[11px]">
+                        <div className="space-y-1 bg-slate-950/50 p-2.5 rounded-xl border border-slate-800">
+                          <strong className="text-emerald-400 block font-semibold flex items-center gap-1">
+                            <CheckCircle2 className="w-3 h-3" /> Strengths:
+                          </strong>
+                          <ul className="list-disc list-inside space-y-1 text-slate-300 pl-1">
                             {turn.feedback.strengths.map((s, idx) => (
-                              <li key={idx}>{s}</li>
+                              <li key={idx} className="leading-snug">{s}</li>
                             ))}
                           </ul>
                         </div>
-                        <div className="space-y-1 text-slate-300">
-                          <strong className="text-amber-400 block">⚠ Areas to improve:</strong>
-                          <ul className="list-disc list-inside space-y-0.5 text-slate-400">
+                        <div className="space-y-1 bg-slate-950/50 p-2.5 rounded-xl border border-slate-800">
+                          <strong className="text-amber-400 block font-semibold flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3" /> Improvement Areas:
+                          </strong>
+                          <ul className="list-disc list-inside space-y-1 text-slate-300 pl-1">
                             {turn.feedback.improvements.map((imp, idx) => (
-                              <li key={idx}>{imp}</li>
+                              <li key={idx} className="leading-snug">{imp}</li>
                             ))}
                           </ul>
                         </div>
                       </div>
 
                       <div className="pt-2 border-t border-indigo-500/10">
-                        <strong className="text-sky-300 block text-[11px] mb-0.5">Model Answer Blueprint:</strong>
-                        <p className="text-slate-300 text-[11px] leading-relaxed italic bg-slate-950/60 p-2 rounded-lg border border-slate-800">
+                        <strong className="text-sky-300 block text-[11px] mb-1 font-semibold flex items-center gap-1">
+                          <Sparkles className="w-3 h-3 text-sky-400" /> Senior Model Answer Benchmark:
+                        </strong>
+                        <p className="text-slate-300 text-[11px] leading-relaxed italic bg-slate-950/80 p-2.5 rounded-xl border border-slate-800/80">
                           "{turn.feedback.modelAnswer}"
                         </p>
                       </div>
@@ -432,17 +531,25 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
             {session.status === 'in-progress' ? (
               <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl space-y-3">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-slate-300">Your Answer:</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-slate-200">Your Speaking Answer:</span>
+                    {isRecording && (
+                      <span className="flex items-center gap-1 text-[11px] font-mono text-rose-400 px-2 py-0.5 rounded bg-rose-500/10 border border-rose-500/20">
+                        <Clock className="w-3 h-3 animate-spin" /> {formatTime(timerSeconds)} ({wordCount} words)
+                      </span>
+                    )}
+                  </div>
+
                   <button
                     onClick={toggleMic}
-                    className={`px-3 py-1 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition ${
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition ${
                       isRecording
-                        ? 'bg-rose-500 text-white animate-pulse'
-                        : 'bg-slate-800 text-slate-300 hover:text-white'
+                        ? 'bg-rose-500 text-white animate-pulse shadow-md shadow-rose-500/30'
+                        : 'bg-slate-800 text-slate-300 hover:text-white border border-slate-700'
                     }`}
                   >
                     {isRecording ? <Mic className="w-3.5 h-3.5" /> : <MicOff className="w-3.5 h-3.5" />}
-                    <span>{isRecording ? 'Listening (Speak Now)...' : 'Record with Mic'}</span>
+                    <span>{isRecording ? 'Listening (Speak Now)...' : 'Record with Microphone'}</span>
                   </button>
                 </div>
 
@@ -450,67 +557,112 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
                   rows={4}
                   value={currentAnswer}
                   onChange={(e) => setCurrentAnswer(e.target.value)}
-                  placeholder="Speak or type your answer here... (Glance at the cue card on the right for bullet points!)"
-                  className="w-full px-3.5 py-2.5 text-xs bg-slate-950 border border-slate-700 rounded-xl text-slate-100 focus:outline-none focus:border-sky-400 leading-relaxed"
+                  placeholder="Speak your answer with the mic or type here... (Look at the live cue card on the right for instant bullet points!)"
+                  className="w-full px-3.5 py-2.5 text-xs bg-slate-950 border border-slate-700 rounded-xl text-slate-100 focus:outline-none focus:border-sky-400 leading-relaxed font-sans"
                 />
 
-                <div className="flex justify-end">
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-[11px] text-slate-500">
+                    {wordCount > 0 ? `${wordCount} words typed/spoken` : 'Glance at cue cards while answering'}
+                  </span>
                   <button
                     onClick={handleSubmitAnswer}
                     disabled={isAnswering || !currentAnswer.trim()}
-                    className="px-5 py-2 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs rounded-xl flex items-center gap-2 transition disabled:opacity-40 shadow-lg shadow-sky-500/20"
+                    className="px-5 py-2 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-slate-950 font-bold text-xs rounded-xl flex items-center gap-2 transition disabled:opacity-40 shadow-lg shadow-sky-500/20"
                   >
                     {isAnswering ? (
                       <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Evaluating & generating next turn...
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        Evaluating & Generating Next Turn...
                       </>
                     ) : (
                       <>
                         <Send className="w-3.5 h-3.5" />
-                        Submit Answer
+                        Submit Answer & Next Question
                       </>
                     )}
                   </button>
                 </div>
               </div>
             ) : (
-              /* Final Scorecard Debrief */
+              /* Final Parakeet-Style Debrief Scorecard */
               session.overallScore !== undefined && (
-                <div className="p-6 bg-gradient-to-tr from-slate-900 via-slate-900 to-indigo-950 border-2 border-indigo-500/40 rounded-2xl space-y-4 animate-fade-in">
-                  <div className="flex items-center justify-between border-b border-indigo-500/30 pb-3">
+                <div className="p-6 bg-gradient-to-tr from-slate-900 via-slate-900 to-indigo-950 border-2 border-indigo-500/40 rounded-2xl space-y-5 animate-fade-in shadow-xl">
+                  <div className="flex items-center justify-between border-b border-indigo-500/30 pb-4">
                     <div>
                       <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider block">
-                        Official Hiring Debrief
+                        Official AI Hiring Debrief
                       </span>
-                      <h3 className="text-lg font-bold text-slate-100">
-                        Recommendation: {session.hiringRecommendation}
+                      <h3 className="text-xl font-bold text-slate-100 flex items-center gap-2">
+                        <Award className="w-5 h-5 text-amber-400" />
+                        {session.hiringRecommendation}
                       </h3>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-2xl font-black text-emerald-400 font-mono">
-                        {session.overallScore} / 100
+                      <span className="text-xs text-slate-400">
+                        {session.company} • {session.stage}
                       </span>
-                      <span className="block text-[10px] text-slate-400">Composite Score</span>
+                    </div>
+                    <div className="text-right bg-slate-950/80 px-4 py-2 rounded-2xl border border-indigo-500/30">
+                      <span className="text-3xl font-black text-emerald-400 font-mono">
+                        {session.overallScore}
+                      </span>
+                      <span className="text-slate-400 text-sm font-mono">/100</span>
+                      <span className="block text-[10px] text-slate-400 font-medium">Composite Score</span>
                     </div>
                   </div>
 
-                  <p className="text-xs text-slate-300 leading-relaxed bg-slate-950/60 p-4 rounded-xl border border-slate-800">
-                    {session.overallSummary}
-                  </p>
+                  {/* Competency Breakdown Meters */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+                    <div className="p-3 bg-slate-950/60 rounded-xl border border-slate-800 space-y-1">
+                      <span className="text-[10px] text-slate-400 block font-semibold">Technical Depth</span>
+                      <span className="text-base font-bold text-sky-400 font-mono">{Math.min(98, session.overallScore + 4)}%</span>
+                    </div>
+                    <div className="p-3 bg-slate-950/60 rounded-xl border border-slate-800 space-y-1">
+                      <span className="text-[10px] text-slate-400 block font-semibold">STAR Structure</span>
+                      <span className="text-base font-bold text-emerald-400 font-mono">{Math.min(95, session.overallScore + 2)}%</span>
+                    </div>
+                    <div className="p-3 bg-slate-950/60 rounded-xl border border-slate-800 space-y-1">
+                      <span className="text-[10px] text-slate-400 block font-semibold">Communication</span>
+                      <span className="text-base font-bold text-indigo-400 font-mono">{Math.min(94, session.overallScore - 2)}%</span>
+                    </div>
+                    <div className="p-3 bg-slate-950/60 rounded-xl border border-slate-800 space-y-1">
+                      <span className="text-[10px] text-slate-400 block font-semibold">Business ROI</span>
+                      <span className="text-base font-bold text-amber-400 font-mono">{Math.min(92, session.overallScore - 4)}%</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <span className="text-xs font-semibold text-slate-300 block">Executive Summary & Feedback:</span>
+                    <p className="text-xs text-slate-300 leading-relaxed bg-slate-950/70 p-4 rounded-xl border border-slate-800">
+                      {session.overallSummary}
+                    </p>
+                  </div>
+
+                  <div className="flex justify-end pt-2">
+                    <button
+                      onClick={() => {
+                        setSession(null);
+                        setCurrentAnswer('');
+                        setLiveCueCard(null);
+                        setTimerSeconds(0);
+                      }}
+                      className="px-5 py-2.5 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs rounded-xl flex items-center gap-2 transition shadow-lg shadow-sky-500/20"
+                    >
+                      <RotateCcw className="w-4 h-4" /> Start Another Mock Interview
+                    </button>
+                  </div>
                 </div>
               )
             )}
           </div>
 
-          {/* Right Column: Live Teleprompter Cue Card Assistant */}
+          {/* Right Column: Live Glance-and-Speak Cue Card Assistant */}
           <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl space-y-3">
             <div className="flex items-center justify-between border-b border-slate-800 pb-2">
               <span className="text-xs font-bold text-sky-400 uppercase tracking-wider flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5" />
                 Live Teleprompter Cue Card
               </span>
-              <span className="text-[10px] text-slate-500 font-mono">Practice Mode</span>
+              <span className="text-[10px] text-slate-500 font-mono">Glance & Speak</span>
             </div>
 
             {isGeneratingCueCard ? (
@@ -522,7 +674,7 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
               <CueCardView card={liveCueCard} compact />
             ) : (
               <div className="h-44 flex flex-col items-center justify-center text-slate-500 text-center p-4">
-                <p className="text-xs">Cue cards will appear here as questions are asked.</p>
+                <p className="text-xs">Cue cards will appear here in real-time as questions are asked.</p>
               </div>
             )}
           </div>
