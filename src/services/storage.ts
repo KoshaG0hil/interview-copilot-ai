@@ -21,7 +21,7 @@ const STORAGE_KEYS = {
 
 const DEFAULT_SETTINGS: AppSettings = {
   geminiApiKey: '',
-  selectedModel: 'gemini-2.0-flash',
+  selectedModel: 'gemini-3.6-flash',
   enableSearchGrounding: true,
   contentProtection: true,
   hudOpacity: 0.92,
@@ -104,9 +104,9 @@ export const storageService = {
       const data = localStorage.getItem(STORAGE_KEYS.SETTINGS);
       const parsed = data ? { ...DEFAULT_SETTINGS, ...JSON.parse(data) } : DEFAULT_SETTINGS;
       // Migrate any invalid legacy model IDs to the correct current default
-      const validModels = ['gemini-2.0-flash', 'gemini-2.0-flash-lite', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+      const validModels = ['gemini-3.6-flash', 'gemini-3.7-flash'];
       if (!validModels.includes(parsed.selectedModel)) {
-        parsed.selectedModel = 'gemini-2.0-flash';
+        parsed.selectedModel = 'gemini-3.6-flash';
       }
       return parsed;
     } catch {

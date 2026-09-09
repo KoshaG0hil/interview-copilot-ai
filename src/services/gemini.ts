@@ -36,7 +36,7 @@ export const geminiService = {
       }
       const res = await this.callGemini({
         apiKey: cleanKey,
-        model: model || 'gemini-2.0-flash',
+        model: model || 'gemini-3.6-flash',
         prompt: 'Ping: Reply with "OK"',
         enableSearchGrounding: false,
       });
@@ -75,7 +75,7 @@ export const geminiService = {
       };
     }
 
-    const model = payload.model || 'gemini-2.0-flash';
+    const model = payload.model || 'gemini-3.6-flash';
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
 
     const parts: any[] = [{ text: payload.prompt }];

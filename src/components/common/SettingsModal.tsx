@@ -137,10 +137,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               onChange={(e) => setFormData({ ...formData, selectedModel: e.target.value })}
               className="w-full px-3.5 py-2 text-sm bg-slate-950 border border-slate-700 rounded-xl text-slate-100 focus:outline-none focus:border-sky-400"
             >
-              <option value="gemini-2.0-flash">Gemini 2.0 Flash (Recommended — Free & Ultra Low Latency)</option>
-              <option value="gemini-2.0-flash-lite">Gemini 2.0 Flash Lite (Lightest & Fast)</option>
-              <option value="gemini-1.5-flash">Gemini 1.5 Flash (Standard Speed)</option>
-              <option value="gemini-1.5-pro">Gemini 1.5 Pro (Most Powerful — Best for Coding & System Design)</option>
+              <option value="gemini-3.6-flash">Gemini 3.6 Flash (Recommended — Free, Real-Time Low Latency)</option>
+              <option value="gemini-3.7-flash">Gemini 3.7 Flash (Latest Advanced Reasoning & Speed)</option>
             </select>
           </div>
 

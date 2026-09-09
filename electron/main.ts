@@ -295,21 +295,15 @@ ipcMain.handle('fetch-url', async (_event, url: string) => {
 });
 
 function normalizeModelName(model?: string): string {
-  if (!model) return 'gemini-2.0-flash';
+  if (!model) return 'gemini-3.6-flash';
   const m = model.trim().toLowerCase();
-  if (m.includes('2.5-flash-lite') || m.includes('2.0-flash-lite') || m === 'gemini-flash-lite') {
-    return 'gemini-2.0-flash-lite';
+  if (m.includes('3.7-flash') || m.includes('3.7')) {
+    return 'gemini-3.7-flash';
   }
-  if (m.includes('2.5-flash') || m.includes('3.7-flash') || m.includes('2.0-flash') || m === 'gemini-flash') {
-    return 'gemini-2.0-flash';
+  if (m.includes('3.6-flash') || m.includes('3.6') || m.includes('2.0') || m.includes('2.5') || m.includes('1.5') || m.includes('flash')) {
+    return 'gemini-3.6-flash';
   }
-  if (m.includes('1.5-pro') || m.includes('2.5-pro') || m === 'gemini-pro') {
-    return 'gemini-1.5-pro';
-  }
-  if (m.includes('1.5-flash')) {
-    return 'gemini-1.5-flash';
-  }
-  return model;
+  return 'gemini-3.6-flash';
 }
 
 // Native Gemini API Integration with Google Search Grounding & Auto-Fallback
@@ -351,9 +345,8 @@ ipcMain.handle('generate-gemini-content', async (_event, payload: any) => {
         config,
       });
     } catch (modelErr: any) {
-      console.warn(`Gemini call with ${modelName} failed, attempting fallback to gemini-1.5-flash:`, modelErr?.message);
-      // Try fallback to gemini-1.5-flash or gemini-2.0-flash
-      const fallbackModel = modelName === 'gemini-2.0-flash' ? 'gemini-1.5-flash' : 'gemini-2.0-flash';
+      console.warn(`Gemini call with ${modelName} failed, attempting fallback to gemini-3.7-flash:`, modelErr?.message);
+      const fallbackModel = modelName === 'gemini-3.6-flash' ? 'gemini-3.7-flash' : 'gemini-3.6-flash';
       response = await ai.models.generateContent({
         model: fallbackModel,
         contents,
