@@ -1,0 +1,286 @@
+import { app, BrowserWindow, ipcMain, globalShortcut, desktopCapturer, shell, screen } from 'electron';
+import path from 'path';
+import { GoogleGenAI } from '@google/genai';
+
+let mainWindow: BrowserWindow | null = null;
+let currentMode: 'hub' | 'hud' = 'hub';
+
+const isDev = process.env.NODE_ENV !== 'production' && !app.isPackaged;
+
+function createMainWindow() {
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width, height } = primaryDisplay.workAreaSize;
+
+  mainWindow = new BrowserWindow({
+    width: 1200,
+    height: 800,
+    minWidth: 450,
+    minHeight: 250,
+    frame: true,
+    transparent: false,
+    hasShadow: true,
+    alwaysOnTop: false,
+    skipTaskbar: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+      nodeIntegration: false,
+      contextIsolation: true,
+      webSecurity: false,
+    },
+    title: 'Interview Copilot AI - Knowledge Hub',
+    backgroundColor: '#090d16',
+  });
+
+  if (isDev) {
+    mainWindow.loadURL('http://localhost:5173');
+  } else {
+    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+  }
+
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
+
+  setupGlobalShortcuts();
+}
+
+function switchToHudMode() {
+  if (!mainWindow) return;
+  currentMode = 'hud';
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width, height } = primaryDisplay.workAreaSize;
+
+  // Position at top-center under the webcam for optimal eye contact
+  const hudWidth = 720;
+  const hudHeight = 440;
+  const hudX = Math.round((width - hudWidth) / 2);
+  const hudY = 24; // Directly below camera
+
+  mainWindow.setMinimumSize(400, 200);
+  mainWindow.setBounds({ x: hudX, y: hudY, width: hudWidth, height: hudHeight });
+  mainWindow.setAlwaysOnTop(true, 'screen-saver');
+  mainWindow.setVisibleOnAllWorkspaces?.(true);
+  mainWindow.setOpacity(0.92);
+  mainWindow.setTitle('Interview Copilot - Stealth HUD');
+
+  // Enable OS screen-capture invisibility (Zoom, Meet, Teams will not capture this window)
+  try {
+    mainWindow.setContentProtection(true);
+  } catch (err) {
+    console.warn('Could not set content protection:', err);
+  }
+}
+
+function switchToHubMode() {
+  if (!mainWindow) return;
+  currentMode = 'hub';
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { width, height } = primaryDisplay.workAreaSize;
+
+  const hubWidth = Math.min(1240, width - 80);
+  const hubHeight = Math.min(840, height - 60);
+  const hubX = Math.round((width - hubWidth) / 2);
+  const hubY = Math.round((height - hubHeight) / 2);
+
+  mainWindow.setMinimumSize(900, 600);
+  mainWindow.setBounds({ x: hubX, y: hubY, width: hubWidth, height: hubHeight });
+  mainWindow.setAlwaysOnTop(false);
+  mainWindow.setOpacity(1.0);
+  mainWindow.setTitle('Interview Copilot AI - Knowledge Hub');
+}
+
+function setupGlobalShortcuts() {
+  // Shortcut 1: Toggle HUD / Hub mode (Ctrl+\)
+  globalShortcut.register('CommandOrControl+\\', () => {
+    if (mainWindow) {
+      if (mainWindow.isVisible()) {
+        const nextMode = currentMode === 'hub' ? 'hud' : 'hub';
+        if (nextMode === 'hud') switchToHudMode();
+        else switchToHubMode();
+        mainWindow.webContents.send('shortcut-trigger', `toggle-mode-${nextMode}`);
+      } else {
+        mainWindow.show();
+      }
+    }
+  });
+
+  // Shortcut 2: Emergency Hide / Reveal (Ctrl+Shift+H)
+  globalShortcut.register('CommandOrControl+Shift+H', () => {
+    if (mainWindow) {
+      if (mainWindow.isVisible()) {
+        mainWindow.hide();
+      } else {
+        mainWindow.show();
+      }
+    }
+  });
+
+  // Shortcut 3: Instant Answer Trigger (Ctrl+Shift+Space)
+  globalShortcut.register('CommandOrControl+Shift+Space', () => {
+    mainWindow?.webContents.send('shortcut-trigger', 'trigger-answer');
+  });
+
+  // Shortcut 4: Capture Screen for coding problem / question (Ctrl+Shift+S)
+  globalShortcut.register('CommandOrControl+Shift+S', () => {
+    mainWindow?.webContents.send('shortcut-trigger', 'trigger-screen-capture');
+  });
+
+  // Shortcut 5: Clear / Reset Transcript (Ctrl+Shift+C)
+  globalShortcut.register('CommandOrControl+Shift+C', () => {
+    mainWindow?.webContents.send('shortcut-trigger', 'clear-transcript');
+  });
+}
+
+// IPC Handlers
+ipcMain.handle('set-content-protection', async (_event, enable: boolean) => {
+  if (mainWindow) {
+    try {
+      mainWindow.setContentProtection(enable);
+      return true;
+    } catch (e) {
+      console.error('Failed to set content protection', e);
+      return false;
+    }
+  }
+  return false;
+});
+
+ipcMain.handle('set-opacity', async (_event, opacity: number) => {
+  if (mainWindow) {
+    const clamped = Math.max(0.15, Math.min(1.0, opacity));
+    mainWindow.setOpacity(clamped);
+  }
+});
+
+ipcMain.handle('set-always-on-top', async (_event, enable: boolean) => {
+  if (mainWindow) {
+    mainWindow.setAlwaysOnTop(enable, enable ? 'screen-saver' : 'normal');
+  }
+});
+
+ipcMain.handle('set-ignore-mouse', async (_event, { ignore, forward }: { ignore: boolean; forward?: boolean }) => {
+  if (mainWindow) {
+    mainWindow.setIgnoreMouseEvents(ignore, { forward: !!forward });
+  }
+});
+
+ipcMain.handle('toggle-window-mode', async (_event, mode: 'hub' | 'hud') => {
+  if (mode === 'hud') {
+    switchToHudMode();
+  } else {
+    switchToHubMode();
+  }
+});
+
+ipcMain.handle('close-window', async () => {
+  mainWindow?.close();
+});
+
+ipcMain.handle('minimize-window', async () => {
+  mainWindow?.minimize();
+});
+
+ipcMain.handle('open-external', async (_event, url: string) => {
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    shell.openExternal(url);
+  }
+});
+
+ipcMain.handle('capture-screen', async () => {
+  try {
+    const sources = await desktopCapturer.getSources({
+      types: ['screen'],
+      thumbnailSize: { width: 1920, height: 1080 },
+    });
+    if (sources.length > 0) {
+      return sources[0].thumbnail.toDataURL();
+    }
+    return null;
+  } catch (error) {
+    console.error('Error capturing screen:', error);
+    return null;
+  }
+});
+
+// Native Gemini API Integration with Google Search Grounding
+ipcMain.handle('generate-gemini-content', async (_event, payload: any) => {
+  try {
+    const key = payload.apiKey || process.env.GEMINI_API_KEY;
+    if (!key) {
+      return { success: false, error: 'No Gemini API Key provided. Please configure it in Settings.' };
+    }
+
+    const ai = new GoogleGenAI({ apiKey: key });
+    const modelName = payload.model || 'gemini-2.5-flash';
+
+    const config: any = {};
+    if (payload.systemInstruction) {
+      config.systemInstruction = payload.systemInstruction;
+    }
+    if (payload.enableSearchGrounding) {
+      config.tools = [{ googleSearch: {} }];
+    }
+
+    let contents: any = payload.prompt;
+    if (payload.imageBase64) {
+      const match = payload.imageBase64.match(/^data:([a-zA-Z0-9]+\/[a-zA-Z0-9-.+]+);base64,(.+)$/);
+      const mimeType = match ? match[1] : 'image/png';
+      const base64Data = match ? match[2] : payload.imageBase64;
+      contents = [
+        { text: payload.prompt },
+        { inlineData: { mimeType, data: base64Data } },
+      ];
+    }
+
+    const response = await ai.models.generateContent({
+      model: modelName,
+      contents,
+      config,
+    });
+
+    const groundingSources: { title: string; url: string }[] = [];
+    const groundingMetadata = (response.candidates?.[0] as any)?.groundingMetadata;
+    if (groundingMetadata?.groundingChunks) {
+      for (const chunk of groundingMetadata.groundingChunks) {
+        if (chunk.web?.uri) {
+          groundingSources.push({
+            title: chunk.web.title || chunk.web.uri,
+            url: chunk.web.uri,
+          });
+        }
+      }
+    }
+
+    return {
+      success: true,
+      text: response.text || '',
+      groundingSources,
+    };
+  } catch (error: any) {
+    console.error('Gemini API Error in Main:', error);
+    return {
+      success: false,
+      error: error?.message || 'Failed to generate response from Gemini',
+    };
+  }
+});
+
+app.whenReady().then(() => {
+  createMainWindow();
+
+  app.on('activate', () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createMainWindow();
+    }
+  });
+});
+
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll();
+});
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});
