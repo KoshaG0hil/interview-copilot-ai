@@ -95,7 +95,7 @@ export const UserGuideModal: React.FC<UserGuideModalProps> = ({
                 Resume Ingestion
               </span>
               <p>
-                Drag and drop your resume (<code className="text-slate-400">.pdf</code>, <code className="text-slate-400">.txt</code>, or <code className="text-slate-400">.md</code>). The AI parses your technical skills, work history, and summary automatically.
+                Drag and drop your resume (<code className="text-slate-400">.docx</code>, <code className="text-slate-400">.doc</code>, <code className="text-slate-400">.pdf</code>, <code className="text-slate-400">.txt</code>, or <code className="text-slate-400">.md</code>). The AI parses your technical skills, work history, and summary automatically.
               </p>
             </div>
             <div className="p-3 bg-slate-950/80 border border-slate-800 rounded-xl space-y-1">

@@ -260,12 +260,12 @@ export const ResumeManager: React.FC<ResumeManagerProps> = ({
           <label className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-700 hover:border-sky-500/50 rounded-xl bg-slate-950/50 hover:bg-slate-950 cursor-pointer transition group">
             <FileText className="w-8 h-8 text-slate-500 group-hover:text-sky-400 transition mb-2" />
             <span className="text-xs font-medium text-slate-300 group-hover:text-sky-300">
-              {isParsing ? 'Analyzing Resume...' : 'Click to Upload Resume (PDF/TXT)'}
+              {isParsing ? 'Analyzing Document...' : 'Click to Upload Resume (PDF / Word DOCX / TXT)'}
             </span>
-            <span className="text-[10px] text-slate-500 mt-1">Saved permanently to disk</span>
+            <span className="text-[10px] text-slate-500 mt-1">Accepts .pdf, .docx, .doc, .txt, .md, .rtf · Saved permanently</span>
             <input
               type="file"
-              accept=".pdf,.txt,.md"
+              accept=".pdf,.docx,.doc,.txt,.md,.rtf,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown,application/rtf"
               onChange={(e) => handleFileUpload(e, false)}
               disabled={isParsing}
               className="hidden"
@@ -476,11 +476,11 @@ export const ResumeManager: React.FC<ResumeManagerProps> = ({
             <span>Supplementary Knowledge Docs ({supplementaryDocs.length})</span>
           </div>
           <div className="flex items-center gap-2">
-            <label className="px-3 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 text-xs font-semibold rounded-xl cursor-pointer transition flex items-center gap-1.5">
-              <Plus className="w-3.5 h-3.5" /> Attach File
+            <label className="px-3 py-1.5 bg-sky-500/10 hover:bg-sky-500/20 text-sky-400 border border-sky-500/30 text-xs font-semibold rounded-xl cursor-pointer transition flex items-center gap-1.5" title="Upload Word DOCX, PDF, or text file">
+              <Plus className="w-3.5 h-3.5" /> Attach File (.docx / .pdf)
               <input
                 type="file"
-                accept=".pdf,.txt,.md"
+                accept=".pdf,.docx,.doc,.txt,.md,.rtf,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,text/markdown,application/rtf"
                 onChange={(e) => handleFileUpload(e, true)}
                 className="hidden"
               />
