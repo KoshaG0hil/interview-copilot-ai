@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   CandidateProfile,
   StarStory,
@@ -23,6 +23,12 @@ import {
   X,
   Minus,
   Mic,
+  Gauge,
+  LifeBuoy,
+  BookOpen,
+  Copy,
+  Check,
+  Zap,
 } from 'lucide-react';
 
 interface StealthHudProps {
@@ -35,6 +41,29 @@ interface StealthHudProps {
   onUpdateSettings: (settings: AppSettings) => void;
   onSwitchToHub: () => void;
 }
+
+const RESCUE_HINTS = [
+  {
+    title: '🧠 STAR Response Blueprint',
+    short: 'STAR Format',
+    content: '1. Situation: 1-sentence context & metric scale.\n2. Task: Your exact goal & constraint.\n3. Action: 3 concrete technical steps you took.\n4. Result: Quantitative business outcome (e.g. 40% latency reduction, $50k saved, 0 downtime).',
+  },
+  {
+    title: '🏗️ System Design 4-Step Checklist',
+    short: 'System Design',
+    content: '1. Scope & Scale: Functional reqs + Non-functional (QPS, Latency, Availability SLA).\n2. High-Level Design: Clients -> API Gateway -> Microservices -> DB / Cache.\n3. Deep Dive: Bottlenecks, Sharding keys, Concurrency, Caching policies.\n4. Trade-offs: Consistency vs Availability (CAP), SQL vs NoSQL, Latency vs Cost.',
+  },
+  {
+    title: '⏳ Buy 10s of Thinking Time',
+    short: 'Buy Time',
+    content: '• "That is a great architectural question. Let me structure my approach across three key dimensions..."\n• "To make sure I address the core constraint, are we optimizing primarily for low latency or strict consistency?"',
+  },
+  {
+    title: '☁️ Cloud Security & Incident Response',
+    short: 'Security Triage',
+    content: '1. Triage: Identify blast radius via SIEM / CloudTrail / GuardDuty.\n2. Containment: Revoke IAM role sessions, isolate Kubernetes pods via null-routing.\n3. Eradication: Rotate secrets in Vault/SecretsManager, patch vulnerability, deploy via IaC.\n4. Post-Mortem: Blameless retrospective & automated preventative guardrails.',
+  },
+];
 
 export const StealthHud: React.FC<StealthHudProps> = ({
   profile,
@@ -55,8 +84,9 @@ export const StealthHud: React.FC<StealthHudProps> = ({
   const [isListening, setIsListening] = useState(false);
   const [currentSpeaker, setCurrentSpeaker] = useState<'interviewer' | 'candidate'>('interviewer');
   const [isAutoAnswer, setIsAutoAnswer] = useState<boolean>(() => settings.autoAnswerOnQuestionDetected !== false);
-  const [activeTab, setActiveTab] = useState<'card' | 'transcript' | 'history'>('card');
+  const [activeTab, setActiveTab] = useState<'card' | 'transcript' | 'rescue' | 'history'>('card');
   const [statusNotification, setStatusNotification] = useState<string | null>(null);
+  const [copiedRescueIndex, setCopiedRescueIndex] = useState<number | null>(null);
 
   function isProbableQuestion(text: string): boolean {
     const t = text.trim().toLowerCase();
@@ -76,9 +106,21 @@ export const StealthHud: React.FC<StealthHudProps> = ({
     return questionStarters.some((prefix) => t.startsWith(prefix)) || (words.length >= 6 && t.includes('?'));
   }
 
+  // Calculate live Speaking Pace (Words Per Minute)
+  const candidateWpm = useMemo(() => {
+    const candidateTranscripts = transcripts.filter((t) => t.speaker === 'candidate');
+    if (candidateTranscripts.length === 0) return 0;
+
+    const totalWords = candidateTranscripts.reduce((acc, t) => acc + t.text.trim().split(/\s+/).length, 0);
+    const firstTime = candidateTranscripts[0].timestamp;
+    const lastTime = candidateTranscripts[candidateTranscripts.length - 1].timestamp;
+    const durationMinutes = Math.max(0.15, (lastTime - firstTime) / 60000);
+
+    return Math.round(totalWords / durationMinutes);
+  }, [transcripts]);
+
   // Initialize Speech Recognition & Global Shortcuts
   useEffect(() => {
-    // Start listening by default in live HUD if supported
     if (speechService.checkSupport()) {
       speechService.start((data) => {
         setTranscripts((prev) => {
@@ -261,8 +303,29 @@ export const StealthHud: React.FC<StealthHudProps> = ({
             <ShieldCheck className="w-3 h-3" />
             <span>{platformBadge}</span>
           </div>
+
+          {/* Real-time Candidate Speaking Pace Coach */}
+          {candidateWpm > 0 && (
+            <div
+              className={`flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-semibold border ${
+                candidateWpm >= 115 && candidateWpm <= 160
+                  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300'
+                  : candidateWpm < 115
+                  ? 'bg-amber-500/10 border-amber-500/20 text-amber-300'
+                  : 'bg-rose-500/10 border-rose-500/20 text-rose-300'
+              }`}
+              title="Speaking Pace: Words Per Minute"
+            >
+              <Gauge className="w-3 h-3" />
+              <span>{candidateWpm} WPM</span>
+              <span className="text-[9px] text-slate-400">
+                {candidateWpm >= 115 && candidateWpm <= 160 ? '(Optimal)' : candidateWpm < 115 ? '(Pace Up)' : '(Slow Down)'}
+              </span>
+            </div>
+          )}
+
           {jobContext.companyName && (
-            <span className="text-[11px] text-slate-400 font-medium truncate max-w-[140px]">
+            <span className="text-[11px] text-slate-400 font-medium truncate max-w-[120px]">
               @{jobContext.companyName}
             </span>
           )}
@@ -290,6 +353,18 @@ export const StealthHud: React.FC<StealthHudProps> = ({
           >
             <Mic className="w-3 h-3" />
             <span>Audio ({transcripts.length})</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('rescue')}
+            className={`px-2 py-0.5 rounded text-[11px] font-semibold flex items-center gap-1 transition ${
+              activeTab === 'rescue'
+                ? 'bg-sky-500 text-slate-950 shadow-sm'
+                : 'text-amber-400/90 hover:text-amber-300'
+            }`}
+            title="Emergency Cheat Sheets & Rescue Phrases"
+          >
+            <LifeBuoy className="w-3 h-3" />
+            <span>Rescue Hints</span>
           </button>
           {history.length > 0 && (
             <button
@@ -349,7 +424,7 @@ export const StealthHud: React.FC<StealthHudProps> = ({
                 <Sparkles className="w-7 h-7 mb-2 text-sky-400/40" />
                 <p className="text-xs font-semibold text-slate-300">Live Stealth Teleprompter Ready</p>
                 <p className="text-[11px] text-slate-500 mt-1 max-w-sm">
-                  Audio is listening. Or press <kbd className="font-mono text-sky-400">Ctrl+Shift+Space</kbd> to solve latest question, or type below.
+                  Audio is listening. Or press <kbd className="font-mono text-sky-400">Ctrl+Shift+Space</kbd> to solve latest question, or click <strong className="text-amber-400">Rescue Hints</strong> above for instant blueprints.
                 </p>
               </div>
             )}
@@ -368,7 +443,41 @@ export const StealthHud: React.FC<StealthHudProps> = ({
           </div>
         )}
 
-        {/* Tab 3: History of Generated Cue Cards */}
+        {/* Tab 3: Emergency Rescue Hints & Blueprints */}
+        {activeTab === 'rescue' && (
+          <div className="space-y-2 max-h-[230px] overflow-y-auto pr-1">
+            <div className="grid grid-cols-2 gap-2">
+              {RESCUE_HINTS.map((hint, idx) => (
+                <div
+                  key={idx}
+                  className="p-2.5 rounded-xl bg-slate-900/90 border border-slate-800 space-y-1.5 hover:border-amber-500/40 transition"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-amber-300 flex items-center gap-1">
+                      {hint.title}
+                    </span>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(hint.content);
+                        setCopiedRescueIndex(idx);
+                        setTimeout(() => setCopiedRescueIndex(null), 2000);
+                      }}
+                      className="text-[10px] text-slate-400 hover:text-white p-1"
+                      title="Copy Blueprint"
+                    >
+                      {copiedRescueIndex === idx ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                    </button>
+                  </div>
+                  <pre className="text-[10px] text-slate-300 font-sans whitespace-pre-wrap leading-relaxed bg-slate-950/60 p-2 rounded-lg border border-slate-900">
+                    {hint.content}
+                  </pre>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Tab 4: History of Generated Cue Cards */}
         {activeTab === 'history' && (
           <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
             {history.map((card, i) => (

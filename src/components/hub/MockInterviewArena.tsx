@@ -30,9 +30,13 @@ import {
   Volume2,
   VolumeX,
   Clock,
-  BarChart3,
-  TrendingUp,
   RotateCcw,
+  BookOpen,
+  Copy,
+  Gauge,
+  HelpCircle,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 
 interface MockInterviewArenaProps {
@@ -64,9 +68,45 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
   const [isGeneratingCueCard, setIsGeneratingCueCard] = useState(false);
   const [isVoiceEnabled, setIsVoiceEnabled] = useState(true);
   const [isAiSpeaking, setIsAiSpeaking] = useState(false);
+  const [speechRate, setSpeechRate] = useState<number>(1.15); // 1.15x is natural conversational speed
   const [timerSeconds, setTimerSeconds] = useState(0);
+  const [showPracticeAnswer, setShowPracticeAnswer] = useState(false);
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [selectedVoiceName, setSelectedVoiceName] = useState<string>('');
 
   const timerRef = useRef<any>(null);
+
+  // Load natural voices from browser SpeechSynthesis
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      const loadVoices = () => {
+        const voices = window.speechSynthesis.getVoices();
+        if (voices.length > 0) {
+          setAvailableVoices(voices);
+          // Pick high-quality English voice
+          const bestVoice =
+            voices.find(
+              (v) =>
+                v.lang.startsWith('en') &&
+                (v.name.includes('Natural') ||
+                  v.name.includes('Google') ||
+                  v.name.includes('Jenny') ||
+                  v.name.includes('Samantha') ||
+                  v.name.includes('Guy') ||
+                  v.name.includes('Zira') ||
+                  v.name.includes('David'))
+            ) || voices.find((v) => v.lang.startsWith('en'));
+
+          if (bestVoice && !selectedVoiceName) {
+            setSelectedVoiceName(bestVoice.name);
+          }
+        }
+      };
+
+      loadVoices();
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+    }
+  }, []);
 
   // Speaking Timer when recording
   useEffect(() => {
@@ -91,14 +131,19 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
     };
   }, []);
 
-  const speakQuestion = (text: string) => {
+  const speakText = (text: string, customRate?: number) => {
     if (!isVoiceEnabled || typeof window === 'undefined' || !('speechSynthesis' in window)) return;
 
-    window.speechSynthesis.cancel(); // cancel any previous utterance
+    window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.rate = 1.0;
+    utterance.rate = customRate || speechRate;
     utterance.pitch = 1.0;
     utterance.lang = 'en-US';
+
+    if (selectedVoiceName && availableVoices.length > 0) {
+      const voiceObj = availableVoices.find((v) => v.name === selectedVoiceName);
+      if (voiceObj) utterance.voice = voiceObj;
+    }
 
     utterance.onstart = () => setIsAiSpeaking(true);
     utterance.onend = () => setIsAiSpeaking(false);
@@ -138,7 +183,7 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
       );
       setSession(newSession);
       const firstQ = newSession.turns[0].question;
-      speakQuestion(firstQ);
+      speakText(firstQ);
       generateCueCardForQuestion(firstQ);
     } catch (err: any) {
       alert('Failed to start mock session: ' + err.message);
@@ -213,7 +258,7 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
           question: evaluation.nextQuestion,
           timestamp: Date.now(),
         });
-        speakQuestion(evaluation.nextQuestion);
+        speakText(evaluation.nextQuestion);
         generateCueCardForQuestion(evaluation.nextQuestion);
       }
 
@@ -236,6 +281,7 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
       setSession(updatedSession);
       setCurrentAnswer('');
       setTimerSeconds(0);
+      setShowPracticeAnswer(false);
     } catch (err: any) {
       alert('Error evaluating answer: ' + err.message);
     } finally {
@@ -244,27 +290,57 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
   };
 
   const wordCount = currentAnswer.trim() ? currentAnswer.trim().split(/\s+/).length : 0;
+  const currentWpm = timerSeconds > 0 ? Math.round((wordCount / timerSeconds) * 60) : 0;
+
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60);
     const s = secs % 60;
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
+  const currentTurn = session?.turns[session.turns.length - 1];
+
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Header */}
-      <div className="border-b border-slate-800 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="border-b border-slate-800 pb-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
           <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2">
             <PlayCircle className="w-5 h-5 text-sky-400" />
-            Parakeet-Style AI Mock Interview Room
+            Parakeet AI Mock Interview Room & Practice Simulator
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            Interactive AI Voice interviewer with real-time speech evaluation, live glance-and-speak cue cards, and official hiring debriefs.
+            Voice-enabled interactive AI interviewer with adjustable speech pacing, instant model practice answers, and real-time candidate coaching.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Interviewer Speed Pacing Selector */}
+          <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 px-2 py-1 rounded-xl text-xs">
+            <Gauge className="w-3.5 h-3.5 text-sky-400" />
+            <span className="text-[10px] text-slate-400 font-semibold uppercase mr-1">Speed:</span>
+            {[
+              { rate: 0.85, label: '0.85x' },
+              { rate: 1.0, label: '1.0x' },
+              { rate: 1.15, label: '1.15x ★' },
+              { rate: 1.3, label: '1.3x' },
+            ].map((p) => (
+              <button
+                key={p.rate}
+                type="button"
+                onClick={() => setSpeechRate(p.rate)}
+                className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-bold transition ${
+                  speechRate === p.rate
+                    ? 'bg-sky-500 text-slate-950 shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title={`Interviewer Speech Speed: ${p.label}`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+
           {/* Voice Output Toggle */}
           <button
             onClick={() => setIsVoiceEnabled(!isVoiceEnabled)}
@@ -287,9 +363,10 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
                   setCurrentAnswer('');
                   setLiveCueCard(null);
                   setTimerSeconds(0);
+                  setShowPracticeAnswer(false);
                 }
               }}
-              className="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition"
+              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition"
             >
               <RefreshCw className="w-3.5 h-3.5" /> Reset Session
             </button>
@@ -309,7 +386,7 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
             {/* Persona Selector */}
             <div className="space-y-2">
               <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
-                Interviewer Persona
+                Interviewer Persona & Tone
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
                 {personas.map((p) => (
@@ -393,26 +470,32 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
             </span>
             <div>
               <span className="text-slate-500 block">Candidate:</span>
-              <strong className="text-slate-200">{profile.fullName || 'Kosha Gohil'}</strong>
+              <strong className="text-slate-200">{profile.fullName || 'Candidate'}</strong>
             </div>
             <div>
               <span className="text-slate-500 block">Target Role:</span>
-              <strong className="text-sky-300">{jobContext.jobTitle || profile.targetRole || 'Cloud Security Engineer'}</strong>
+              <strong className="text-sky-300">{jobContext.jobTitle || profile.targetRole || 'Software Engineer'}</strong>
             </div>
             <div>
-              <span className="text-slate-500 block">Company:</span>
+              <span className="text-slate-500 block">Target Company:</span>
               <strong className="text-emerald-300 font-mono">{jobContext.companyName || 'Target Company'}</strong>
             </div>
             <div>
-              <span className="text-slate-500 block">Grounding Resources:</span>
+              <span className="text-slate-500 block">Personal Knowledge Vault:</span>
               <span className="text-slate-300">{stories.length} STAR stories, {customQAs.length} custom Q&As, {documents.length} extra docs</span>
+            </div>
+            <div className="pt-2 border-t border-slate-800">
+              <span className="text-[10px] text-slate-400 flex items-center gap-1">
+                <Gauge className="w-3 h-3 text-sky-400" />
+                Interviewer voice speed set to <strong>{speechRate}x</strong>.
+              </span>
             </div>
           </div>
         </div>
       ) : (
         /* Screen 2: Active Parakeet Mock Interview Room */
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left 2 Columns: Dialogue, AI Voice Player, and Candidate Input */}
+          {/* Left 2 Columns: Dialogue, AI Voice Player, Model Answers, and Candidate Input */}
           <div className="lg:col-span-2 space-y-4">
             {/* Session Progress Header */}
             <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl flex items-center justify-between text-xs">
@@ -423,7 +506,7 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
                     {session.company} — {session.stage}
                   </span>
                   <span className="text-[10px] text-slate-400">
-                    {session.interviewerPersona} • {session.difficulty.toUpperCase()}
+                    {session.interviewerPersona} • {session.difficulty.toUpperCase()} • Speed: {speechRate}x
                   </span>
                 </div>
               </div>
@@ -433,7 +516,7 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
             </div>
 
             {/* Conversation Turns List */}
-            <div className="space-y-4 max-h-[480px] overflow-y-auto pr-1">
+            <div className="space-y-4 max-h-[440px] overflow-y-auto pr-1">
               {session.turns.map((turn, i) => (
                 <div key={turn.id} className="space-y-3 animate-fade-in">
                   {/* Interviewer Question Bubble */}
@@ -446,14 +529,16 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
                         <span className="text-[10px] font-bold text-sky-400 uppercase tracking-wider">
                           Interviewer • Question {i + 1}
                         </span>
-                        <button
-                          onClick={() => speakQuestion(turn.question)}
-                          className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300 flex items-center gap-1 transition"
-                          title="Replay Audio"
-                        >
-                          <Volume2 className="w-3 h-3 text-sky-400" />
-                          <span>Listen</span>
-                        </button>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => speakText(turn.question)}
+                            className="px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-[10px] text-slate-300 flex items-center gap-1 transition"
+                            title="Replay Audio"
+                          >
+                            <Volume2 className="w-3 h-3 text-sky-400" />
+                            <span>Listen ({speechRate}x)</span>
+                          </button>
+                        </div>
                       </div>
                       <p className="text-slate-100 leading-relaxed text-sm font-medium">
                         {turn.question}
@@ -514,9 +599,17 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
                       </div>
 
                       <div className="pt-2 border-t border-indigo-500/10">
-                        <strong className="text-sky-300 block text-[11px] mb-1 font-semibold flex items-center gap-1">
-                          <Sparkles className="w-3 h-3 text-sky-400" /> Senior Model Answer Benchmark:
-                        </strong>
+                        <div className="flex items-center justify-between mb-1">
+                          <strong className="text-sky-300 block text-[11px] font-semibold flex items-center gap-1">
+                            <Sparkles className="w-3 h-3 text-sky-400" /> Senior Model Answer Benchmark:
+                          </strong>
+                          <button
+                            onClick={() => speakText(turn.feedback!.modelAnswer)}
+                            className="text-[10px] text-sky-400 hover:text-sky-300 flex items-center gap-1"
+                          >
+                            <Volume2 className="w-3 h-3" /> Listen
+                          </button>
+                        </div>
                         <p className="text-slate-300 text-[11px] leading-relaxed italic bg-slate-950/80 p-2.5 rounded-xl border border-slate-800/80">
                           "{turn.feedback.modelAnswer}"
                         </p>
@@ -527,15 +620,81 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
               ))}
             </div>
 
-            {/* Answer Input Area (If In-Progress) */}
+            {/* Answer Input & Practice Assistant Area (If In-Progress) */}
             {session.status === 'in-progress' ? (
               <div className="p-4 bg-slate-900 border border-slate-800 rounded-2xl space-y-3">
+                {/* Practice Model Answer Accordion */}
+                {liveCueCard && (
+                  <div className="p-3 bg-indigo-950/30 border border-indigo-500/30 rounded-xl space-y-2">
+                    <div className="flex items-center justify-between">
+                      <button
+                        type="button"
+                        onClick={() => setShowPracticeAnswer(!showPracticeAnswer)}
+                        className="flex items-center gap-2 text-xs font-semibold text-indigo-300 hover:text-indigo-200 transition"
+                      >
+                        <BookOpen className="w-3.5 h-3.5 text-indigo-400" />
+                        <span>💡 Peek Practice Answer & Senior Talking Points</span>
+                        {showPracticeAnswer ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                      </button>
+
+                      {showPracticeAnswer && (
+                        <div className="flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const points = liveCueCard.bulletPoints.join(' ');
+                              const fullScript = `${liveCueCard.headline} Specifically: ${points}`;
+                              setCurrentAnswer(fullScript);
+                            }}
+                            className="px-2 py-0.5 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 text-[10px] font-medium rounded-lg flex items-center gap-1 transition"
+                            title="Load model answer into your text box to practice speaking"
+                          >
+                            <Copy className="w-3 h-3" /> Load into Practice Box
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const points = liveCueCard.bulletPoints.join('. ');
+                              speakText(`${liveCueCard.headline}. ${points}`);
+                            }}
+                            className="px-2 py-0.5 bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 text-[10px] font-medium rounded-lg flex items-center gap-1 transition"
+                          >
+                            <Volume2 className="w-3 h-3" /> Listen
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {showPracticeAnswer && (
+                      <div className="pt-2 border-t border-indigo-500/20 space-y-2 text-xs animate-fade-in">
+                        <p className="font-semibold text-sky-300">
+                          {liveCueCard.headline}
+                        </p>
+                        <ul className="list-disc list-inside space-y-1 text-slate-300 pl-1 text-[11px]">
+                          {liveCueCard.bulletPoints.map((b, idx) => (
+                            <li key={idx} className="leading-relaxed">{b}</li>
+                          ))}
+                        </ul>
+                        {liveCueCard.starMapping?.resultHighlight && (
+                          <div className="p-2 bg-slate-950/70 rounded-lg border border-slate-800 text-[11px] text-emerald-300">
+                            <strong>Key Metric / Result:</strong> {liveCueCard.starMapping.resultHighlight}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold text-slate-200">Your Speaking Answer:</span>
+                    <span className="font-semibold text-slate-200">Your Answer:</span>
                     {isRecording && (
-                      <span className="flex items-center gap-1 text-[11px] font-mono text-rose-400 px-2 py-0.5 rounded bg-rose-500/10 border border-rose-500/20">
-                        <Clock className="w-3 h-3 animate-spin" /> {formatTime(timerSeconds)} ({wordCount} words)
+                      <span className="flex items-center gap-1.5 text-[11px] font-mono text-rose-400 px-2 py-0.5 rounded bg-rose-500/10 border border-rose-500/20">
+                        <Clock className="w-3 h-3 animate-spin" /> {formatTime(timerSeconds)}
+                        <span className="text-slate-400">·</span>
+                        <span className={currentWpm >= 120 && currentWpm <= 160 ? 'text-emerald-400' : 'text-amber-400'}>
+                          {currentWpm} WPM {currentWpm >= 120 && currentWpm <= 160 ? '(Good Pace)' : ''}
+                        </span>
                       </span>
                     )}
                   </div>
@@ -549,7 +708,7 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
                     }`}
                   >
                     {isRecording ? <Mic className="w-3.5 h-3.5" /> : <MicOff className="w-3.5 h-3.5" />}
-                    <span>{isRecording ? 'Listening (Speak Now)...' : 'Record with Microphone'}</span>
+                    <span>{isRecording ? 'Listening (Speak Now)...' : 'Record Voice Answer'}</span>
                   </button>
                 </div>
 
@@ -557,7 +716,7 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
                   rows={4}
                   value={currentAnswer}
                   onChange={(e) => setCurrentAnswer(e.target.value)}
-                  placeholder="Speak your answer with the mic or type here... (Look at the live cue card on the right for instant bullet points!)"
+                  placeholder="Speak your answer with the mic or type here... (Glance at the cue card on the right or click 'Peek Practice Answer' above for model points!)"
                   className="w-full px-3.5 py-2.5 text-xs bg-slate-950 border border-slate-700 rounded-xl text-slate-100 focus:outline-none focus:border-sky-400 leading-relaxed font-sans"
                 />
 
@@ -644,6 +803,7 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
                         setCurrentAnswer('');
                         setLiveCueCard(null);
                         setTimerSeconds(0);
+                        setShowPracticeAnswer(false);
                       }}
                       className="px-5 py-2.5 bg-sky-500 hover:bg-sky-400 text-slate-950 font-bold text-xs rounded-xl flex items-center gap-2 transition shadow-lg shadow-sky-500/20"
                     >
