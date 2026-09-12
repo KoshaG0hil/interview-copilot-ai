@@ -55,8 +55,8 @@ export const geminiService = {
     imageBase64?: string;
   }): Promise<{ success: boolean; text: string; groundingSources?: { title: string; url: string }[]; error?: string }> {
     // If running inside Electron, use the IPC bridge for native execution & zero CORS
-    if (window.electronAPI?.generateGeminiContent) {
-      const response = await window.electronAPI.generateGeminiContent(payload);
+    if (typeof window !== 'undefined' && (window as any).electronAPI?.generateGeminiContent) {
+      const response = await (window as any).electronAPI.generateGeminiContent(payload);
       return {
         success: response.success,
         text: response.text || '',
@@ -65,8 +65,13 @@ export const geminiService = {
       };
     }
 
-    // Direct Browser Fallback
-    const key = (payload.apiKey || (import.meta as any).env?.VITE_GEMINI_API_KEY || '').trim();
+    // Direct Browser / Node Fallback
+    const key = (
+      payload.apiKey ||
+      (typeof import.meta !== 'undefined' && (import.meta as any).env?.VITE_GEMINI_API_KEY) ||
+      (typeof process !== 'undefined' && process.env?.VITE_GEMINI_API_KEY) ||
+      ''
+    ).trim();
     if (!key) {
       return {
         success: false,

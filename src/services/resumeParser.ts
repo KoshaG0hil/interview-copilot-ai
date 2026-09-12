@@ -36,12 +36,25 @@ export const resumeParser = {
     }
 
     // Plain text, markdown, csv, code
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve((reader.result as string) || '');
-      reader.onerror = () => reject(new Error('Failed to read text file'));
-      reader.readAsText(file);
-    });
+    if (typeof file.text === 'function') {
+      try {
+        const text = await file.text();
+        return text || '';
+      } catch (err) {
+        console.warn('file.text() failed, falling back to FileReader:', err);
+      }
+    }
+
+    if (typeof FileReader !== 'undefined') {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string) || '');
+        reader.onerror = () => reject(new Error('Failed to read text file'));
+        reader.readAsText(file);
+      });
+    }
+
+    return '';
   },
 
   async extractFromWord(file: File): Promise<string> {
