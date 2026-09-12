@@ -79,12 +79,17 @@ export interface MockInterviewTurn {
   timestamp: number;
 }
 
+export type MockInterviewFocus = 'hybrid' | 'resume-only' | 'job-description-only' | 'industry-standard';
+export type MockInterviewRoundType = 'phone-screen' | 'behavioral-star' | 'technical-deepdive' | 'system-design' | 'hiring-manager' | 'general-full-loop';
+
 export interface MockInterviewSession {
   id: string;
   timestamp: number;
   role: string;
   company: string;
   stage: string;
+  roundType?: MockInterviewRoundType;
+  focusMode?: MockInterviewFocus;
   difficulty: 'entry' | 'mid' | 'senior' | 'staff-principal';
   interviewerPersona: string;
   turns: MockInterviewTurn[];

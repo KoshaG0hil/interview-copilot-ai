@@ -4,6 +4,8 @@ import {
   CompanyJobContext,
   MockInterviewSession,
   MockInterviewTurn,
+  MockInterviewFocus,
+  MockInterviewRoundType,
   AppSettings,
   StarStory,
   KnowledgeDocument,
@@ -37,6 +39,15 @@ import {
   HelpCircle,
   ChevronDown,
   ChevronUp,
+  Sliders,
+  Radio,
+  FileText,
+  Briefcase,
+  Building2,
+  Layers,
+  PhoneCall,
+  Terminal,
+  Cpu,
 } from 'lucide-react';
 
 interface MockInterviewArenaProps {
@@ -58,7 +69,8 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
 }) => {
   const [session, setSession] = useState<MockInterviewSession | null>(null);
   const [selectedPersona, setSelectedPersona] = useState('Senior Bar Raiser (Amazon/Meta)');
-  const [selectedStage, setSelectedStage] = useState('Technical Coding & Problem Solving');
+  const [selectedRoundType, setSelectedRoundType] = useState<MockInterviewRoundType>('technical-deepdive');
+  const [selectedFocus, setSelectedFocus] = useState<MockInterviewFocus>('hybrid');
   const [selectedDifficulty, setSelectedDifficulty] = useState<MockInterviewSession['difficulty']>('senior');
 
   const [currentAnswer, setCurrentAnswer] = useState('');
@@ -73,6 +85,7 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
   const [showPracticeAnswer, setShowPracticeAnswer] = useState(false);
   const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [selectedVoiceName, setSelectedVoiceName] = useState<string>('');
+  const [isPlayingVoiceTest, setIsPlayingVoiceTest] = useState(false);
 
   const timerRef = useRef<any>(null);
 
@@ -82,8 +95,10 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
       const loadVoices = () => {
         const voices = window.speechSynthesis.getVoices();
         if (voices.length > 0) {
-          setAvailableVoices(voices);
-          // Pick high-quality English voice
+          // Filter English voices
+          const englishVoices = voices.filter((v) => v.lang.startsWith('en'));
+          setAvailableVoices(englishVoices.length > 0 ? englishVoices : voices);
+
           const bestVoice =
             voices.find(
               (v) =>
@@ -152,17 +167,84 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
     window.speechSynthesis.speak(utterance);
   };
 
+  const handleTestVoice = () => {
+    setIsPlayingVoiceTest(true);
+    speakText(
+      `Hello! I'll be your AI interviewer today. I'm testing this voice at ${speechRate}x speed. Sounds clear and natural?`
+    );
+    setTimeout(() => setIsPlayingVoiceTest(false), 3000);
+  };
+
   const personas = [
     { id: 'bar-raiser', label: 'Senior Bar Raiser (Amazon/Meta)', desc: 'High rigor on leadership principles, STAR metrics, and deep ownership.' },
     { id: 'tech-lead', label: 'Staff Architect / Tech Lead', desc: 'Focuses on deep system design, bottlenecks, concurrency, and trade-offs.' },
     { id: 'hiring-manager', label: 'Hiring Director / Manager', desc: 'Evaluates culture alignment, cross-functional conflict, and business ROI.' },
   ];
 
-  const stages = [
-    'Technical Coding & Problem Solving',
-    'System Design & Architecture',
-    'Behavioral & Leadership (STAR)',
-    'Hiring Manager & Culture Fit',
+  const roundTypes: { id: MockInterviewRoundType; label: string; icon: any; desc: string }[] = [
+    {
+      id: 'phone-screen',
+      label: '1. Recruiter / Phone Screen',
+      icon: PhoneCall,
+      desc: 'Background walk-through, career progression, core motivations, high-level technical qualification.',
+    },
+    {
+      id: 'behavioral-star',
+      label: '2. Behavioral & Leadership (STAR)',
+      icon: Briefcase,
+      desc: 'Conflict resolution, high-severity incident leadership, cross-functional pushback, ownership.',
+    },
+    {
+      id: 'technical-deepdive',
+      label: '3. Technical Deep-Dive & Coding',
+      icon: Terminal,
+      desc: 'Infrastructure automation, algorithm problem-solving, API design, security mechanics.',
+    },
+    {
+      id: 'system-design',
+      label: '4. Distributed System Design',
+      icon: Layers,
+      desc: 'High throughput (100k+ QPS), microservices, database sharding, latency vs consistency.',
+    },
+    {
+      id: 'hiring-manager',
+      label: '5. Hiring Manager / Director Final',
+      icon: Building2,
+      desc: 'Strategic business impact, technical leadership, cross-squad collaboration, long-term roadmap.',
+    },
+    {
+      id: 'general-full-loop',
+      label: '6. General Comprehensive Loop',
+      icon: Cpu,
+      desc: 'A full blended mix across behavioral competencies, technical problem solving, and architecture.',
+    },
+  ];
+
+  const focusOptions: { id: MockInterviewFocus; label: string; icon: any; desc: string }[] = [
+    {
+      id: 'hybrid',
+      label: '⚡ Hybrid (Resume + Job Description Match) ★ Recommended',
+      icon: Sparkles,
+      desc: 'Tests how your actual resume accomplishments match the target company JD requirements and gaps.',
+    },
+    {
+      id: 'resume-only',
+      label: '📄 Deep Resume & Past Experience Focus',
+      icon: FileText,
+      desc: 'Probes deeply into the exact projects, tools, metrics, and STAR stories on your resume.',
+    },
+    {
+      id: 'job-description-only',
+      label: '🏢 Target Job Description & Company Focus',
+      icon: Building2,
+      desc: 'Tailors questions specifically to the target company culture, required tech stack, and scale challenges.',
+    },
+    {
+      id: 'industry-standard',
+      label: '🌐 Standard Industry Rigor & Fundamentals',
+      icon: Briefcase,
+      desc: 'Tests general tier-1 industry standards and fundamental engineering problem-solving.',
+    },
   ];
 
   const handleStartMock = async () => {
@@ -173,13 +255,21 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
 
     try {
       setIsAnswering(true);
+      const stageLabel = roundTypes.find((r) => r.id === selectedRoundType)?.label || 'Technical Interview';
       const newSession = await mockInterviewService.startMockSession(
         profile,
         jobContext,
-        selectedStage,
+        stageLabel,
         selectedDifficulty,
         selectedPersona,
-        settings
+        settings,
+        {
+          focusMode: selectedFocus,
+          roundType: selectedRoundType,
+          stories,
+          documents,
+          customQAs,
+        }
       );
       setSession(newSession);
       const firstQ = newSession.turns[0].question;
@@ -197,7 +287,7 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
       setIsGeneratingCueCard(true);
       const card = await geminiService.generateCueCard({
         question,
-        mode: selectedStage.includes('Coding') ? 'technical' : selectedStage.includes('System') ? 'system-design' : 'behavioral',
+        mode: selectedRoundType === 'technical-deepdive' ? 'technical' : selectedRoundType === 'system-design' ? 'system-design' : 'behavioral',
         profile,
         stories,
         jobContext,
@@ -298,8 +388,6 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
     return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
-  const currentTurn = session?.turns[session.turns.length - 1];
-
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Header */}
@@ -310,13 +398,13 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
             Parakeet AI Mock Interview Room & Practice Simulator
           </h2>
           <p className="text-xs text-slate-400 mt-0.5">
-            Voice-enabled interactive AI interviewer with adjustable speech pacing, instant model practice answers, and real-time candidate coaching.
+            Voice-enabled interactive AI interviewer with adjustable speech pacing, diverse natural voice engines, custom question focus, and real-time candidate coaching.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {/* Interviewer Speed Pacing Selector */}
-          <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 px-2 py-1 rounded-xl text-xs">
+          {/* Voice Engine & Speed Selector */}
+          <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 px-2 py-1 rounded-xl text-xs">
             <Gauge className="w-3.5 h-3.5 text-sky-400" />
             <span className="text-[10px] text-slate-400 font-semibold uppercase mr-1">Speed:</span>
             {[
@@ -383,51 +471,87 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
               Customize Mock Interview Parameters
             </h3>
 
-            {/* Persona Selector */}
+            {/* Step 1: Interview Format / Round Type */}
             <div className="space-y-2">
               <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
-                Interviewer Persona & Tone
+                1. Select Interview Format & Round Type
               </label>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
-                {personas.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => setSelectedPersona(p.label)}
-                    className={`p-3 rounded-xl border text-left transition flex flex-col justify-between space-y-1 ${
-                      selectedPersona === p.label
-                        ? 'bg-sky-500/10 border-sky-500 text-sky-100 shadow-sm ring-1 ring-sky-500/50'
-                        : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
-                    }`}
-                  >
-                    <span className="text-xs font-bold block text-slate-200">{p.label}</span>
-                    <span className="text-[10px] text-slate-400 leading-snug">{p.desc}</span>
-                  </button>
-                ))}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {roundTypes.map((rt) => {
+                  const Icon = rt.icon;
+                  const isSelected = selectedRoundType === rt.id;
+                  return (
+                    <button
+                      key={rt.id}
+                      type="button"
+                      onClick={() => setSelectedRoundType(rt.id)}
+                      className={`p-3 rounded-xl border text-left transition flex items-start gap-2.5 ${
+                        isSelected
+                          ? 'bg-sky-500/10 border-sky-500 text-sky-100 shadow-sm ring-1 ring-sky-500/50'
+                          : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
+                      }`}
+                    >
+                      <div className={`p-2 rounded-lg shrink-0 mt-0.5 ${isSelected ? 'bg-sky-500 text-slate-950' : 'bg-slate-800 text-slate-400'}`}>
+                        <Icon className="w-4 h-4" />
+                      </div>
+                      <div className="space-y-0.5 min-w-0">
+                        <span className="text-xs font-bold block text-slate-200 truncate">{rt.label}</span>
+                        <span className="text-[10px] text-slate-400 leading-snug line-clamp-2">{rt.desc}</span>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Stage Selector */}
+            {/* Step 2: Question Grounding Focus Mode */}
+            <div className="space-y-2">
+              <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+                2. Question Source & Grounding Focus
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {focusOptions.map((fo) => {
+                  const isSelected = selectedFocus === fo.id;
+                  return (
+                    <button
+                      key={fo.id}
+                      type="button"
+                      onClick={() => setSelectedFocus(fo.id)}
+                      className={`p-3 rounded-xl border text-left transition flex flex-col justify-between space-y-1 ${
+                        isSelected
+                          ? 'bg-indigo-500/10 border-indigo-500 text-indigo-100 shadow-sm ring-1 ring-indigo-500/50'
+                          : 'bg-slate-950/60 border-slate-800 text-slate-400 hover:border-slate-700'
+                      }`}
+                    >
+                      <span className="text-xs font-bold block text-slate-200">{fo.label}</span>
+                      <span className="text-[10px] text-slate-400 leading-snug">{fo.desc}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Step 3: Interviewer Persona & Voice Engine */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">
-                  Interview Round
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
+                  3. Interviewer Persona
                 </label>
                 <select
-                  value={selectedStage}
-                  onChange={(e) => setSelectedStage(e.target.value)}
+                  value={selectedPersona}
+                  onChange={(e) => setSelectedPersona(e.target.value)}
                   className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded-xl text-slate-100 focus:outline-none focus:border-sky-400"
                 >
-                  {stages.map((s) => (
-                    <option key={s} value={s}>
-                      {s}
+                  {personas.map((p) => (
+                    <option key={p.id} value={p.label}>
+                      {p.label}
                     </option>
                   ))}
                 </select>
               </div>
 
-              <div>
-                <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1">
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
                   Difficulty Level
                 </label>
                 <select
@@ -443,6 +567,41 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
               </div>
             </div>
 
+            {/* Voice Engine Selector & Audio Preview */}
+            <div className="p-3.5 bg-slate-950/80 border border-slate-800 rounded-xl space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Volume2 className="w-3.5 h-3.5 text-sky-400" />
+                  Interviewer Natural Voice Engine
+                </label>
+                <button
+                  type="button"
+                  onClick={handleTestVoice}
+                  disabled={isPlayingVoiceTest}
+                  className="px-2.5 py-1 bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 text-[10px] font-bold rounded-lg flex items-center gap-1 transition border border-sky-500/30"
+                >
+                  <Volume2 className="w-3 h-3" />
+                  <span>{isPlayingVoiceTest ? 'Playing...' : '🔊 Test Voice'}</span>
+                </button>
+              </div>
+
+              <select
+                value={selectedVoiceName}
+                onChange={(e) => setSelectedVoiceName(e.target.value)}
+                className="w-full px-3 py-2 text-xs bg-slate-900 border border-slate-700 rounded-xl text-slate-100 focus:outline-none focus:border-sky-400"
+              >
+                {availableVoices.length > 0 ? (
+                  availableVoices.map((v) => (
+                    <option key={v.name} value={v.name}>
+                      {v.name} ({v.lang})
+                    </option>
+                  ))
+                ) : (
+                  <option value="">Default High-Quality Natural Voice</option>
+                )}
+              </select>
+            </div>
+
             <button
               onClick={handleStartMock}
               disabled={isAnswering}
@@ -451,7 +610,7 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
               {isAnswering ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Setting up interactive interview room...
+                  Setting up tailored interview room...
                 </>
               ) : (
                 <>
@@ -484,11 +643,15 @@ export const MockInterviewArena: React.FC<MockInterviewArenaProps> = ({
               <span className="text-slate-500 block">Personal Knowledge Vault:</span>
               <span className="text-slate-300">{stories.length} STAR stories, {customQAs.length} custom Q&As, {documents.length} extra docs</span>
             </div>
-            <div className="pt-2 border-t border-slate-800">
-              <span className="text-[10px] text-slate-400 flex items-center gap-1">
+            <div className="pt-2 border-t border-slate-800 space-y-1 text-[10px] text-slate-400">
+              <div className="flex items-center gap-1">
                 <Gauge className="w-3 h-3 text-sky-400" />
-                Interviewer voice speed set to <strong>{speechRate}x</strong>.
-              </span>
+                Interviewer speed: <strong>{speechRate}x</strong>
+              </div>
+              <div className="flex items-center gap-1">
+                <Volume2 className="w-3 h-3 text-indigo-400" />
+                Voice: <strong className="truncate max-w-[140px]">{selectedVoiceName || 'Default'}</strong>
+              </div>
             </div>
           </div>
         </div>

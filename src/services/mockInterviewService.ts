@@ -3,7 +3,12 @@ import {
   CompanyJobContext,
   MockInterviewSession,
   MockInterviewTurn,
+  MockInterviewFocus,
+  MockInterviewRoundType,
   AppSettings,
+  StarStory,
+  KnowledgeDocument,
+  CustomQAItem,
 } from '../types';
 import { geminiService } from './gemini';
 
@@ -14,33 +19,63 @@ export const mockInterviewService = {
     stage: string,
     difficulty: MockInterviewSession['difficulty'],
     persona: string,
-    settings: AppSettings
+    settings: AppSettings,
+    options?: {
+      focusMode?: MockInterviewFocus;
+      roundType?: MockInterviewRoundType;
+      stories?: StarStory[];
+      documents?: KnowledgeDocument[];
+      customQAs?: CustomQAItem[];
+    }
   ): Promise<MockInterviewSession> {
+    const focusMode = options?.focusMode || 'hybrid';
+    const roundType = options?.roundType || 'technical-deepdive';
+
+    const focusInstructions = {
+      'hybrid': 'GROUNDING INSTRUCTION: Ask a challenging question that tests how the candidate\'s actual past resume experience and skills match the target job description requirements and technical gaps.',
+      'resume-only': 'GROUNDING INSTRUCTION: Focus deeply on the candidate\'s resume, past projects, specific achievements, metrics, and tools they listed. Probe for real technical depth on their stated experience.',
+      'job-description-only': 'GROUNDING INSTRUCTION: Focus specifically on the target company and job description requirements, their architecture scale, core tech stack, and industry challenges.',
+      'industry-standard': 'GROUNDING INSTRUCTION: Ask standard high-rigor industry interview questions testing fundamental domain principles, system design, and coding practices.',
+    }[focusMode];
+
+    const roundInstructions = {
+      'phone-screen': 'ROUND TYPE: Initial Recruiter / Phone Screen. Keep questions focused on background walk-through, core technical qualifications, motivation for this role, and high-level fit.',
+      'behavioral-star': 'ROUND TYPE: Behavioral & Leadership Competencies (STAR). Ask a situational behavioral question exploring high-severity conflict, production outages, cross-functional disagreement, or leadership ownership.',
+      'technical-deepdive': 'ROUND TYPE: Technical Deep-Dive & Coding. Present a concrete technical engineering problem, algorithm challenge, or cloud/infrastructure automation scenario.',
+      'system-design': 'ROUND TYPE: Large-Scale System Design & Architecture. Ask a large-scale distributed system design question (scale, throughput, bottlenecks, trade-offs).',
+      'hiring-manager': 'ROUND TYPE: Hiring Manager / Director Final Round. Focus on business impact, technical leadership, cross-team collaboration, and handling ambiguous engineering requirements.',
+      'general-full-loop': 'ROUND TYPE: General Comprehensive Interview. A balanced blend of behavioral, situational, and technical problem solving.',
+    }[roundType];
+
     const prompt = `You are roleplaying as an expert interviewer for ${jobContext.companyName || 'a top tech company'}.
 INTERVIEWER PERSONA: ${persona}
-INTERVIEW STAGE: ${stage} (e.g. System Design, Technical Coding, Behavioral, Hiring Manager)
+INTERVIEW STAGE: ${stage}
 DIFFICULTY: ${difficulty.toUpperCase()}
 
-CANDIDATE INFORMATION:
+${focusInstructions}
+${roundInstructions}
+
+CANDIDATE INFORMATION (FROM RESUME & KNOWLEDGE BASE):
 - Name: ${profile.fullName || 'Candidate'}
 - Target Role: ${jobContext.jobTitle || profile.targetRole || 'Senior Engineer'}
 - Years of Experience: ${profile.yearsOfExperience}
 - Core Skills: ${profile.coreSkills.join(', ')}
-- Resume Summary: ${profile.summary || 'Strong background in engineering.'}
+- Resume Summary / Text: ${profile.resumeText ? profile.resumeText.slice(0, 4000) : profile.summary || 'Strong background in engineering.'}
 
-TARGET COMPANY & JOB:
+TARGET COMPANY & JOB DESCRIPTION:
 - Company: ${jobContext.companyName || 'Target Company'}
 - Job Title: ${jobContext.jobTitle || 'Target Role'}
 - Key Required Skills: ${jobContext.requiredSkills.join(', ')}
+- Job Description Details: ${jobContext.jobDescription ? jobContext.jobDescription.slice(0, 2000) : 'Standard industry expectations'}
 
 TASK:
-1. Greet the candidate in character (concise, professional, warm).
-2. Ask the FIRST realistic interview question for this stage and role.
+1. Greet the candidate warmly in character (1-2 concise sentences).
+2. Ask the FIRST realistic interview question specifically tailored to the selected Round Type and Focus Mode.
 
 Return JSON:
 {
   "greeting": "Brief greeting introducing yourself and the round",
-  "firstQuestion": "The first realistic interview question"
+  "firstQuestion": "The first realistic, high-quality interview question"
 }`;
 
     const res = await geminiService.callGemini({
@@ -71,6 +106,8 @@ Return JSON:
       role: jobContext.jobTitle || profile.targetRole || 'Software Engineer',
       company: jobContext.companyName || 'Target Company',
       stage,
+      roundType,
+      focusMode,
       difficulty,
       interviewerPersona: persona,
       turns: [firstTurn],
@@ -97,6 +134,7 @@ Return JSON:
     const prompt = `You are evaluating a candidate's answer in an actual mock interview for ${session.company} (${session.role}).
 INTERVIEW ROUND: ${session.stage} (${session.difficulty})
 INTERVIEWER PERSONA: ${session.interviewerPersona}
+FOCUS MODE: ${session.focusMode || 'hybrid'}
 
 CURRENT QUESTION ASKED:
 "${currentTurn.question}"
